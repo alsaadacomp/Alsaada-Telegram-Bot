@@ -1,16 +1,25 @@
-import type { Context } from '#root/bot/context.js'
+import type { Context, SessionData } from '#root/bot/context.js'
 import type { Config } from '#root/config.js'
-import type { Logger } from '#root/logger.js'
+import type { Logger } from '#root/modules/services/logger/index.js'
 import type { BotConfig } from 'grammy'
-import { greetingConversation } from '#root/bot/conversations/greeting.js'
 import { adminFeature } from '#root/bot/features/admin.js'
 import { languageFeature } from '#root/bot/features/language.js'
+import { mainMenuComposer } from '#root/bot/features/main-menu.js'
+import { sendNotificationConversation } from '#root/bot/features/notifications-panel/conversations/send-notification-conversation.js'
+import { featureLoader, featureRegistry } from '#root/bot/features/registry/index.js'
+import { settingsFeatureComposer } from '#root/bot/features/settings/index.js'
 import { unhandledFeature } from '#root/bot/features/unhandled.js'
 import { welcomeFeature } from '#root/bot/features/welcome.js'
 import { errorHandler } from '#root/bot/handlers/error.js'
-import { i18n, isMultipleLocales } from '#root/bot/i18n.js'
 import { session } from '#root/bot/middlewares/session.js'
 import { updateLogger } from '#root/bot/middlewares/update-logger.js'
+import { greetingConversation } from '#root/modules/interaction/wizards/greeting.js'
+import { JOIN_REQUEST_CONVERSATION, joinRequestConversation } from '#root/modules/interaction/wizards/join-request.js'
+import { loadUserPermissions, RoleManager } from '#root/modules/permissions/index.js'
+import { FileManagementService } from '#root/modules/services/file-management/index.js'
+import { i18n, isMultipleLocales } from '#root/modules/services/i18n-extended/i18n.js'
+import { registerDefaultSettings, settingsManager } from '#root/modules/settings/index.js'
+// import { middlewareRegistry, rateLimiterHandler, startRateLimitCleanup } from '#root/modules/middleware/index.js'
 import { autoChatAction } from '@grammyjs/auto-chat-action'
 import { conversations } from '@grammyjs/conversations'
 import { hydrate } from '@grammyjs/hydrate'
@@ -27,11 +36,31 @@ function getSessionKey(ctx: Omit<Context, 'session'>) {
   return ctx.chat?.id.toString()
 }
 
-export function createBot(token: string, dependencies: Dependencies, botConfig?: BotConfig<Context>) {
+export async function createBot(token: string, dependencies: Dependencies, botConfig?: BotConfig<Context>) {
   const {
     config,
     logger,
   } = dependencies
+
+  // Initialize Settings Manager
+  registerDefaultSettings(settingsManager)
+  logger.info('Settings Manager initialized')
+
+  // Initialize File Storage (creates uploads/ and subfolders if missing)
+  try {
+    await FileManagementService.initialize()
+    logger.info('File storage initialized')
+  }
+  catch (error) {
+    logger.error({ error }, 'Failed to initialize file storage')
+  }
+
+  // Check maintenance mode
+  const maintenanceMode = await settingsManager.get<boolean>('bot.maintenance_mode')
+  if (maintenanceMode) {
+    const maintenanceMsg = await settingsManager.get<string>('bot.maintenance_message')
+    logger.warn({ message: maintenanceMsg }, 'Bot is in maintenance mode')
+  }
 
   const bot = new TelegramBot<Context>(token, botConfig)
 
@@ -58,17 +87,81 @@ export function createBot(token: string, dependencies: Dependencies, botConfig?:
   protectedBot.use(hydrate())
   protectedBot.use(session({
     getSessionKey,
-    storage: new MemorySessionStorage(),
+    storage: new MemorySessionStorage<SessionData>(),
   }))
   protectedBot.use(i18n)
+
+  // Load user permissions from database
+  protectedBot.use(async (ctx, next) => {
+    if (ctx.from) {
+      try {
+        // Get or create user
+        await RoleManager.getOrCreateUser(BigInt(ctx.from.id), {
+          username: ctx.from.username,
+          firstName: ctx.from.first_name,
+          lastName: ctx.from.last_name,
+        })
+      }
+      catch (error) {
+        logger.error({ error }, 'Error creating/loading user')
+      }
+    }
+    await next()
+  })
+
+  // Load permissions context into ctx.dbUser
+  protectedBot.use(loadUserPermissions())
+
+  // Rate Limiter - Protection from spam and abuse
+  // protectedBot.use(rateLimiterHandler)
+  // logger.info('Rate Limiter middleware enabled')
+
+  // Start rate limit cleanup scheduler
+  // startRateLimitCleanup()
+
+  // Maintenance mode check (allow SUPER_ADMIN to bypass)
+  protectedBot.use(async (ctx, next) => {
+    const maintenanceMode = await settingsManager.get<boolean>('bot.maintenance_mode')
+    if (maintenanceMode && ctx.dbUser?.role !== 'SUPER_ADMIN') {
+      const maintenanceMsg = await settingsManager.get<string>('bot.maintenance_message') || 'البوت تحت الصيانة حالياً.'
+      await ctx.reply(maintenanceMsg)
+      return
+    }
+    await next()
+  })
+
   protectedBot.use(conversations())
   protectedBot.use(greetingConversation())
+  protectedBot.use(joinRequestConversation())
+  protectedBot.use(sendNotificationConversation()) // MUST be registered with other conversations!
 
   // Handlers
   protectedBot.use(welcomeFeature)
+  protectedBot.use(settingsFeatureComposer) // Settings feature
   protectedBot.use(adminFeature)
   if (isMultipleLocales)
     protectedBot.use(languageFeature)
+
+  // Load features BEFORE setting up handlers
+  // This ensures features are ready when bot starts
+  const loadResult = await featureLoader.loadAll()
+  logger.info({
+    loaded: loadResult.loaded,
+    failed: loadResult.failed,
+    features: loadResult.loadedFeatures,
+  }, 'Features loaded')
+
+  // Register all feature composers FIRST (so they can handle specific callbacks)
+  loadResult.loadedFeatures.forEach((featureId) => {
+    const feature = featureRegistry.get(featureId)
+    if (feature && feature.composer) {
+      protectedBot.use(feature.composer)
+      logger.info(`Registered composer for: ${featureId}`)
+    }
+  })
+
+  // Main menu (should be AFTER feature composers so features handle their callbacks first)
+  protectedBot.use(mainMenuComposer)
 
   // must be the last handler
   protectedBot.use(unhandledFeature)
@@ -76,4 +169,4 @@ export function createBot(token: string, dependencies: Dependencies, botConfig?:
   return bot
 }
 
-export type Bot = ReturnType<typeof createBot>
+export type Bot = Awaited<ReturnType<typeof createBot>>

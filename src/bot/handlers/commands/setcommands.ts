@@ -1,11 +1,11 @@
 import type { Context } from '#root/bot/context.js'
 import type { LanguageCode } from '@grammyjs/types'
 import type { CommandContext } from 'grammy'
-import { i18n } from '#root/bot/i18n.js'
+import { i18n } from '#root/modules/services/i18n-extended/i18n.js'
 import { Command, CommandGroup } from '@grammyjs/commands'
 
 function addCommandLocalizations(command: Command) {
-  i18n.locales.forEach((locale) => {
+  i18n.locales.forEach((locale: string) => {
     command.localize(
       locale as LanguageCode,
       command.name,

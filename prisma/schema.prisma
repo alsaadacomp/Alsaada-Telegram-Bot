@@ -1,0 +1,1376 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id                 Int       @id @default(autoincrement())
+  name               String
+  nameEn             String?
+  commercialRegister String?
+  taxId              String?
+  insuranceNumber    String?
+  address            String?
+  addressEn          String?
+  governorateId      Int?
+  governorate        Governorate?     @relation("CompanyGovernorate", fields: [governorateId], references: [id], onDelete: SetNull)
+  city               String?
+  country            String?
+  postalCode         String?
+  phone              String?
+  phone2             String?
+  fax                String?
+  mobile             String?
+  email              String?
+  email2             String?
+  website            String?
+  facebook           String?
+  twitter            String?
+  linkedin           String?
+  instagram          String?
+  logo               String?
+  description        String?
+  establishedYear    Int?
+  legalForm          String?
+  capital            Float?
+  currency           String?
+  bankAccounts       String?
+  taxOffice          String?
+  taxRecord          String?
+  chamberOfCommerce  String?
+  ceo                String?
+  ceoPhone           String?
+  accountant         String?
+  accountantPhone    String?
+  notes              String?
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  createdBy          Int?
+  updatedBy          Int?
+  Branch             Branch[]
+  Project            Project[]
+  employees          Employee[]
+  equipment          Equipment[]      // معدات الشركة
+
+  @@index([isActive])
+  @@index([name])
+  @@index([createdBy])
+  @@index([updatedBy])
+  @@index([establishedYear])
+  @@index([legalForm])
+  @@index([governorateId])
+  @@index([city])
+  @@index([country])
+  @@index([createdAt])
+  @@index([name, isActive])
+}
+
+model Branch {
+  id           Int       @id @default(autoincrement())
+  companyId    Int
+  name         String
+  nameEn       String?
+  code         String?
+  address      String?
+  addressEn    String?
+  city         String?
+  country      String?
+  postalCode   String?
+  region       String?
+  phone        String?
+  phone2       String?
+  fax          String?
+  mobile       String?
+  email        String?
+  email2       String?
+  website      String?
+  manager      String?
+  managerPhone String?
+  type         String?
+  capacity     Int?
+  openingDate  DateTime?
+  isActive     Boolean   @default(true)
+  notes        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  createdBy    Int?
+  updatedBy    Int?
+  Company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([isActive])
+  @@index([name])
+  @@index([companyId])
+  @@index([createdBy])
+  @@index([updatedBy])
+  @@index([type])
+  @@index([capacity])
+  @@index([city])
+  @@index([country])
+  @@index([createdAt])
+  @@index([companyId, isActive])
+}
+
+model Project {
+  id              Int       @id @default(autoincrement())
+  companyId       Int
+  name            String
+  nameEn          String?
+  code            String?
+  description     String?
+  descriptionEn  String?
+  clientName      String?
+  clientPhone     String?
+  clientEmail     String?
+  location        String?
+  city            String?
+  region          String?
+  contractValue   Float?
+  currency        String?
+  paidAmount      Float?
+  remainingAmount Float?
+  startDate       DateTime?
+  endDate         DateTime?
+  actualEndDate   DateTime?
+  projectManager  String?
+  engineer        String?
+  supervisor      String?
+  status          String?
+  progress        Int?
+  priority        String?
+  type            String?
+  category        String?
+  isActive        Boolean   @default(true)
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  createdBy       Int?
+  updatedBy       Int?
+  Company         Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Equipment Relations
+  equipmentInUse       Equipment[]        @relation("ProjectEquipment")
+  equipmentUsageRecords EquipmentUsage[]
+  shiftAssignments     ShiftAssignment[]
+
+  @@index([endDate])
+  @@index([startDate])
+  @@index([isActive])
+  @@index([status])
+  @@index([name])
+  @@index([companyId])
+  @@index([createdBy])
+  @@index([updatedBy])
+  @@index([priority])
+  @@index([type])
+  @@index([category])
+  @@index([city])
+  @@index([region])
+  @@index([createdAt])
+  @@index([companyId, isActive])
+}
+
+model User {
+  id                                       Int                      @id @default(autoincrement())
+  telegramId                               BigInt                   @unique
+  username                                 String?                  @unique
+  firstName                                String?
+  lastName                                 String?
+  fullName                                 String?
+  nickname                                 String?
+  phone                                    String?
+  email                                    String?
+  role                                     Role                     @default(GUEST)
+  isActive                                 Boolean                  @default(true)
+  isBanned                                 Boolean                  @default(false)
+  bannedAt                                 DateTime?
+  bannedReason                             String?
+  bannedBy                                 Int?
+  customPermissions                        String?
+  department                               String?
+  position                                 String?
+  notes                                    String?
+  lastActiveAt                             DateTime?                @updatedAt
+  createdAt                                DateTime                 @default(now())
+  updatedAt                                DateTime                 @updatedAt
+  JoinRequest_JoinRequest_userIdToUser     JoinRequest?             @relation("JoinRequest_userIdToUser")
+  JoinRequest_JoinRequest_rejectedByToUser JoinRequest[]            @relation("JoinRequest_rejectedByToUser")
+  JoinRequest_JoinRequest_approvedByToUser JoinRequest[]            @relation("JoinRequest_approvedByToUser")
+  notificationPreferences                  NotificationPreferences?
+  receivedNotifications                    NotificationRecipient[]
+  createdTemplates                         NotificationTemplate[]   @relation("TemplateCreator")
+  roleChangedBy                            RoleChange[]             @relation("ChangedByUser")
+  roleChanges                              RoleChange[]             @relation("UserRoleChanges")
+
+  @@index([isActive])
+  @@index([role])
+  @@index([telegramId])
+  @@index([username])
+  @@index([bannedBy])
+  @@index([department])
+  @@index([position])
+  @@index([lastActiveAt])
+  @@index([email])
+  @@index([phone])
+  @@index([createdAt])
+  @@index([role, isActive])
+}
+
+model JoinRequest {
+  id                                Int       @id @default(autoincrement())
+  telegramId                        BigInt    @unique
+  username                          String?
+  fullName                          String
+  nickname                          String?
+  phone                             String
+  status                            String    @default("PENDING")
+  requestedAt                       DateTime  @default(now())
+  respondedAt                       DateTime?
+  approvedBy                        Int?
+  rejectedBy                        Int?
+  rejectionReason                   String?
+  notes                             String?
+  userId                            Int?      @unique
+  User_JoinRequest_userIdToUser     User?     @relation("JoinRequest_userIdToUser", fields: [userId], references: [id])
+  User_JoinRequest_rejectedByToUser User?     @relation("JoinRequest_rejectedByToUser", fields: [rejectedBy], references: [id])
+  User_JoinRequest_approvedByToUser User?     @relation("JoinRequest_approvedByToUser", fields: [approvedBy], references: [id])
+
+  @@index([requestedAt])
+  @@index([status])
+  @@index([telegramId])
+  @@index([approvedBy])
+  @@index([rejectedBy])
+  @@index([respondedAt])
+  @@index([fullName])
+  @@index([phone])
+  @@index([nickname])
+  @@index([status, requestedAt])
+}
+
+model RoleChange {
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  oldRole       Role
+  newRole       Role
+  changedBy     Int
+  reason        String?
+  createdAt     DateTime @default(now())
+  changedByUser User     @relation("ChangedByUser", fields: [changedBy], references: [id])
+  user          User     @relation("UserRoleChanges", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([changedBy])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([oldRole])
+  @@index([newRole])
+  @@index([reason])
+  @@index([changedBy, createdAt])
+  @@index([userId, createdAt])
+  @@index([oldRole, newRole])
+}
+
+model Permission {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  category    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([isActive])
+  @@index([name])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([category, isActive])
+  @@index([name, isActive])
+}
+
+model NotificationPreferences {
+  id                Int      @id @default(autoincrement())
+  userId            Int      @unique
+  enabled           Boolean  @default(true)
+  types             String?
+  priorities        String?
+  quietHoursEnabled Boolean  @default(false)
+  quietHoursStart   String?
+  quietHoursEnd     String?
+  channels          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([enabled])
+  @@index([quietHoursEnabled])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([userId, enabled])
+  @@index([enabled, quietHoursEnabled])
+}
+
+model Notification {
+  id              String                @id
+  message         String
+  type            NotificationType      @default(INFO)
+  priority        NotificationPriority  @default(NORMAL)
+  status          String                @default("PENDING")
+  targetAudience  String
+  targetRole      String?
+  targetUserIds   String?
+  data            String?
+  buttons         String?
+  image           String?
+  parseMode       String?               @default("HTML")
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  recurring       Boolean               @default(false)
+  recurringConfig String?
+  templateId      String?
+  failureReason   String?
+  successCount    Int                   @default(0)
+  failureCount    Int                   @default(0)
+  metadata        String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  recipients      NotificationRecipient[]
+
+  @@index([status])
+  @@index([type])
+  @@index([priority])
+  @@index([targetAudience])
+  @@index([scheduledAt])
+  @@index([sentAt])
+  @@index([createdAt])
+  @@index([templateId])
+  @@index([status, createdAt])
+  @@index([type, priority])
+}
+
+model NotificationRecipient {
+  id             Int          @id @default(autoincrement())
+  notificationId String
+  userId         Int
+  status         String       @default("pending")
+  sentAt         DateTime?
+  failureReason  String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notification   Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, userId])
+  @@index([notificationId])
+  @@index([userId])
+  @@index([status])
+  @@index([sentAt])
+  @@index([createdAt])
+  @@index([failureReason])
+  @@index([updatedAt])
+  @@index([notificationId, status])
+  @@index([userId, status])
+}
+
+model NotificationTemplate {
+  id        String               @id @default(cuid())
+  name      String               @unique
+  message   String
+  type      NotificationType     @default(INFO)
+  priority  NotificationPriority @default(NORMAL)
+  variables String?
+  buttons   String?
+  isActive  Boolean              @default(true)
+  createdBy Int?
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  creator   User?                @relation("TemplateCreator", fields: [createdBy], references: [id])
+
+  @@index([isActive])
+  @@index([type])
+  @@index([priority])
+  @@index([createdBy])
+  @@index([name])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([variables])
+  @@index([isActive, type])
+  @@index([type, priority])
+}
+
+model Setting {
+  id             Int              @id @default(autoincrement())
+  key            String
+  value          String
+  scope          SettingScope     @default(GLOBAL)
+  category       SettingCategory  @default(SYSTEM)
+  type           SettingType
+  userId         Int?             @default(0)
+  featureId      String?          @default("")
+  description    String?
+  isSecret       Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  updatedBy      Int?
+  SettingHistory SettingHistory[]
+
+  @@unique([key, scope, userId, featureId])
+  @@index([featureId])
+  @@index([userId])
+  @@index([category])
+  @@index([scope])
+  @@index([key])
+  @@index([updatedBy])
+  @@index([isSecret])
+  @@index([createdAt])
+  @@index([updatedAt])
+  @@index([category, scope])
+  @@index([key, scope])
+}
+
+model SettingHistory {
+  id         Int      @id @default(autoincrement())
+  settingId  Int
+  settingKey String
+  oldValue   String?
+  newValue   String
+  changedBy  Int?
+  reason     String?
+  createdAt  DateTime @default(now())
+  Setting    Setting  @relation(fields: [settingId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@index([changedBy])
+  @@index([settingKey])
+  @@index([settingId])
+  @@index([oldValue])
+  @@index([newValue])
+  @@index([reason])
+  @@index([changedBy, createdAt])
+  @@index([settingId, createdAt])
+  @@index([settingKey, createdAt])
+}
+
+model Department {
+  id          Int        @id @default(autoincrement())
+  name        String
+  nameEn      String?
+  code        String     @unique
+  description String?
+  managerId   Int?
+  orderIndex  Int        @default(0)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  createdBy   Int?
+  updatedBy   Int?
+
+  // Relations
+  positions   Position[]
+  employees   Employee[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([orderIndex])
+  @@index([name])
+  @@index([createdAt])
+  @@map("HR_Department")
+}
+
+model Position {
+  id            Int        @id @default(autoincrement())
+  title         String
+  titleAr       String
+  code          String     @unique
+  description   String?
+  
+  // Department Relation (إجباري)
+  departmentId  Int
+  department    Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  
+  orderIndex    Int        @default(0)
+  isActive      Boolean    @default(true)
+  
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  createdBy     Int?
+  updatedBy     Int?
+  
+  // Relations
+  employees     Employee[]
+
+  @@index([code])
+  @@index([departmentId])
+  @@index([isActive])
+  @@index([title])
+  @@index([titleAr])
+  @@index([createdAt])
+  @@map("HR_Position")
+}
+
+model Governorate {
+  id            Int        @id @default(autoincrement())
+  nameAr        String     @unique
+  nameEn        String     @unique
+  code          String     @unique
+  region        String?    // Delta, Upper Egypt, Canal, etc.
+  orderIndex    Int        @default(0)
+  isActive      Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  
+  // Relations
+  employees     Employee[] @relation("EmployeeGovernorate")
+  companies     Company[]  @relation("CompanyGovernorate")
+
+  @@index([nameAr])
+  @@index([nameEn])
+  @@index([code])
+  @@index([isActive])
+  @@index([orderIndex])
+  @@index([region])
+  @@map("Location_Governorate")
+}
+
+model Employee {
+  id                    Int              @id @default(autoincrement())
+  
+  // معلومات أساسية
+  employeeCode          String           @unique
+  firstName             String
+  firstNameEn           String?
+  secondName            String?
+  secondNameEn          String?
+  thirdName             String?
+  thirdNameEn           String?
+  lastName              String
+  lastNameEn            String?
+  fullName              String           // يتم حسابه تلقائياً
+  fullNameEn            String?          // يتم حسابه تلقائياً
+  
+  // معلومات شخصية
+  nationalId            String           @unique
+  passportNumber        String?
+  gender                Gender
+  dateOfBirth           DateTime
+  placeOfBirth          String?
+  nationality           String
+  maritalStatus         MaritalStatus
+  religion              String?
+  bloodType             String?
+  
+  // معلومات الاتصال
+  personalEmail         String?
+  workEmail             String?
+  personalPhone         String
+  workPhone             String?
+  emergencyContactName  String
+  emergencyContactPhone String
+  emergencyContactRelation String?
+  
+  // العنوان
+  currentAddress        String
+  currentAddressEn      String?
+  permanentAddress      String?
+  
+  // Location
+  governorateId         Int?
+  governorate           Governorate?     @relation("EmployeeGovernorate", fields: [governorateId], references: [id], onDelete: SetNull)
+  city                  String           // نص حر للمدينة/الحي
+  region                String?
+  country               String           @default("Egypt")
+  postalCode            String?
+  
+  // معلومات وظيفية
+  companyId             Int
+  company               Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  
+  departmentId          Int
+  department            Department       @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  
+  positionId            Int
+  position              Position         @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  
+  employmentType        EmploymentType
+  contractType          ContractType
+  employmentStatus      EmploymentStatus @default(ACTIVE)
+  
+  hireDate              DateTime
+  confirmationDate      DateTime?        // تاريخ التثبيت
+  resignationDate       DateTime?
+  terminationDate       DateTime?
+  terminationReason     String?
+  
+  // الراتب والمزايا
+  basicSalary           Float
+  allowances            Float?           @default(0)
+  totalSalary           Float            // يتم حسابه: basicSalary + allowances
+  currency              String           @default("EGP")
+  paymentMethod         PaymentMethod    @default(BANK_TRANSFER)
+  bankName              String?
+  bankAccountNumber     String?
+  iban                  String?
+  
+  // التأمينات والضرائب
+  socialInsuranceNumber String?
+  taxNumber             String?
+  insuranceStartDate    DateTime?
+  
+  // معلومات العمل
+  directManagerId       Int?             // مدير مباشر
+  directManager         Employee?        @relation("ManagerSubordinates", fields: [directManagerId], references: [id], onDelete: SetNull)
+  subordinates          Employee[]       @relation("ManagerSubordinates")
+  
+  workSchedule          String?          // نظام العمل
+  workLocation          String?          // موقع العمل
+  
+  // المؤهلات
+  educationLevel        EducationLevel?
+  major                 String?          // التخصص
+  university            String?
+  graduationYear        Int?
+  certifications        String?          // شهادات (JSON)
+  
+  // المهارات والخبرات
+  skills                String?          // مهارات (JSON)
+  previousExperience    String?          // خبرات سابقة (JSON)
+  yearsOfExperience     Int?             @default(0)
+  
+  // الوثائق
+  profilePhoto          String?
+  cv                    String?          // رابط السيرة الذاتية
+  documents             String?          // مستندات أخرى (JSON)
+  
+  // الإجازات
+  annualLeaveBalance    Int              @default(21) // رصيد الإجازة السنوية
+  sickLeaveBalance      Int              @default(180) // رصيد الإجازة المرضية بالأيام
+  casualLeaveBalance    Int              @default(7) // إجازات عارضة
+  
+  // الحضور والانصراف
+  attendanceRequired    Boolean          @default(true)
+  fingerprintId         String?          // معرف البصمة
+  
+  // ملاحظات وحالة
+  notes                 String?
+  isActive              Boolean          @default(true)
+  
+  // معلومات التتبع
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  createdBy             Int?
+  updatedBy             Int?
+  
+  // Equipment Relations
+  operatedEquipment     Equipment[]      @relation("EquipmentOperator")
+  performedMaintenance  MaintenanceRecord[] @relation("MaintenancePerformer")
+  equipmentUsages       EquipmentUsage[] @relation("UsageOperator")
+  fuelLogs              FuelLog[]        @relation("FuelOperator")
+  shiftAssignments      ShiftAssignment[] @relation("ShiftOperator")
+
+  @@index([employeeCode])
+  @@index([nationalId])
+  @@index([companyId])
+  @@index([departmentId])
+  @@index([positionId])
+  @@index([directManagerId])
+  @@index([employmentStatus])
+  @@index([employmentType])
+  @@index([isActive])
+  @@index([hireDate])
+  @@index([fullName])
+  @@index([firstName, lastName])
+  @@index([gender])
+  @@index([maritalStatus])
+  @@index([governorateId])
+  @@index([city])
+  @@index([country])
+  @@index([createdAt])
+  @@index([companyId, departmentId])
+  @@index([companyId, isActive])
+  @@index([departmentId, isActive])
+  @@index([employmentStatus, isActive])
+  @@map("HR_Employee")
+}
+
+// ============================================
+// Equipment Management System
+// ============================================
+
+model EquipmentCategory {
+  id          Int              @id @default(autoincrement())
+  nameAr      String           @unique
+  nameEn      String           @unique
+  code        String           @unique
+  description String?
+  icon        String?          // أيقونة
+  orderIndex  Int              @default(0)
+  isActive    Boolean          @default(true)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  createdBy   Int?
+  updatedBy   Int?
+  
+  // Relations
+  types       EquipmentType[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([orderIndex])
+  @@map("Equipment_Category")
+}
+
+model EquipmentType {
+  id                Int                @id @default(autoincrement())
+  categoryId        Int
+  category          EquipmentCategory  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  
+  nameAr            String
+  nameEn            String
+  code              String             @unique
+  description       String?
+  
+  // مواصفات افتراضية
+  defaultCapacity   String?            // السعة الافتراضية
+  defaultFuelType   String?            // نوع الوقود
+  requiresLicense   Boolean            @default(false) // يحتاج رخصة؟
+  licenseType       String?            // نوع الرخصة المطلوبة
+  
+  // نظام الصيانة الافتراضي
+  maintenanceTrackingType  MaintenanceTrackingType  @default(HOURS) // تتبع بالكيلو أو الساعات
+  oilChangeInterval        Int?                                      // فترة تغيير الزيت (كم أو ساعة)
+  maintenanceIntervalDays  Int?                                      // كل كم يوم صيانة دورية
+  maintenanceIntervalHours Int?                                      // كل كم ساعة عمل
+  maintenanceIntervalKm    Int?                                      // كل كم كيلومتر
+  inspectionIntervalDays   Int?                                      // كل كم يوم فحص
+  
+  orderIndex        Int                @default(0)
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  createdBy         Int?
+  updatedBy         Int?
+  
+  // Relations
+  equipment         Equipment[]
+
+  @@index([code])
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([orderIndex])
+  @@map("Equipment_Type")
+}
+
+model Equipment {
+  id                    Int                   @id @default(autoincrement())
+  
+  // التصنيف
+  equipmentTypeId       Int
+  equipmentType         EquipmentType         @relation(fields: [equipmentTypeId], references: [id], onDelete: Restrict)
+  
+  // معلومات أساسية
+  code                  String                @unique      // كود المعدة (EQ001)
+  nameAr                String                             // اسم المعدة
+  nameEn                String?
+  plateNumber           String?               @unique      // رقم اللوحة
+  
+  // معلومات الشراء
+  companyId             Int?
+  company               Company?              @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  purchaseDate          DateTime?
+  purchasePrice         Float?
+  currency              String?               @default("EGP")
+  supplier              String?                            // المورد
+  
+  // المواصفات
+  manufacturer          String?                            // الشركة المصنعة
+  model                 String?                            // الموديل
+  yearOfManufacture     Int?                               // سنة الصنع
+  serialNumber          String?               @unique      // الرقم التسلسلي
+  capacity              String?                            // السعة (مثلاً: 5 طن)
+  fuelType              FuelType?
+  engineNumber          String?                            // رقم المحرك
+  chassisNumber         String?                            // رقم الشاسيه
+  color                 String?
+  
+  // الحالة والموقع
+  status                EquipmentStatus       @default(AVAILABLE)
+  condition             EquipmentCondition    @default(GOOD)
+  currentLocation       String?                            // الموقع الحالي
+  currentProjectId      Int?
+  currentProject        Project?              @relation("ProjectEquipment", fields: [currentProjectId], references: [id], onDelete: SetNull)
+  
+  // المشغل/السائق
+  currentOperatorId     Int?                               // الموظف المشغل الحالي
+  currentOperator       Employee?             @relation("EquipmentOperator", fields: [currentOperatorId], references: [id], onDelete: SetNull)
+  
+  // الصيانة
+  lastMaintenanceDate   DateTime?
+  nextMaintenanceDate   DateTime?
+  maintenanceInterval   Int?                               // كل كم يوم صيانة
+  
+  // تتبع حسب نوع المعدة
+  maintenanceBy         MaintenanceByType  @default(MILEAGE) // بالكيلومتر أو الساعات
+  oilChangeInterval     Int?                               // فترة تغيير الزيت (كم أو ساعة)
+  lastOilChangeAt       Int?                               // آخر تغيير زيت عند (كم/ساعة)
+  nextOilChangeAt       Int?                               // تغيير الزيت القادم عند
+  
+  totalWorkingHours     Int?                  @default(0) // إجمالي ساعات العمل
+  currentMileage        Int?                  @default(0) // عداد الكيلومترات
+  
+  // تتبع تغيير الزيت
+  lastOilChangeDate     DateTime?
+  lastOilChangeMileage  Int?                               // عداد عند آخر تغيير زيت
+  lastOilChangeHours    Int?                               // ساعات عند آخر تغيير زيت
+  nextOilChangeDue      Int?                               // متى تغيير الزيت القادم (كم أو ساعة)
+  oilType               String?                            // نوع الزيت
+  oilCapacity           Float?                             // سعة الزيت (لتر)
+  
+  // التأمين والترخيص
+  insuranceCompany      String?
+  insuranceNumber       String?
+  insuranceStartDate    DateTime?
+  insuranceEndDate      DateTime?
+  licenseNumber         String?
+  licenseExpiryDate     DateTime?
+  
+  // التكاليف
+  dailyRentalRate       Float?                             // سعر الإيجار اليومي
+  hourlyRate            Float?                             // السعر بالساعة
+  fuelConsumptionRate   Float?                             // معدل استهلاك الوقود
+  
+  // معلومات إضافية
+  photos                String?                            // روابط الصور (JSON)
+  documents             String?                            // مستندات (JSON)
+  specifications        String?                            // مواصفات تفصيلية (JSON)
+  notes                 String?
+  
+  isActive              Boolean               @default(true)
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  createdBy             Int?
+  updatedBy             Int?
+  
+  // Relations
+  maintenanceRecords    MaintenanceRecord[]
+  usageRecords          EquipmentUsage[]
+  costs                 EquipmentCost[]
+  fuelLogs              FuelLog[]
+  maintenanceSchedules  MaintenanceSchedule[]  // جدول الصيانة الدورية
+  shiftAssignments      ShiftAssignment[]      // الورديات المخصصة
+
+  @@index([code])
+  @@index([plateNumber])
+  @@index([equipmentTypeId])
+  @@index([companyId])
+  @@index([currentProjectId])
+  @@index([currentOperatorId])
+  @@index([status])
+  @@index([condition])
+  @@index([isActive])
+  @@index([nextMaintenanceDate])
+  @@index([insuranceEndDate])
+  @@index([licenseExpiryDate])
+  @@index([status, isActive])
+  @@index([companyId, status])
+  @@map("Equipment")
+}
+
+model MaintenanceRecord {
+  id                Int              @id @default(autoincrement())
+  
+  equipmentId       Int
+  equipment         Equipment        @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  
+  // معلومات الصيانة
+  maintenanceType   MaintenanceType
+  maintenanceDate   DateTime
+  nextDueDate       DateTime?        // الصيانة القادمة
+  
+  // التفاصيل
+  description       String
+  workPerformed     String?          // الأعمال المنفذة
+  partsReplaced     String?          // قطع غيار تم استبدالها (JSON)
+  
+  // التكلفة
+  laborCost         Float?           @default(0)
+  partsCost         Float?           @default(0)
+  totalCost         Float
+  currency          String           @default("EGP")
+  
+  // من قام بالعمل
+  performedBy       String?          // اسم الفني/الشركة
+  performedById     Int?             // موظف إذا كان داخلي
+  performer         Employee?        @relation("MaintenancePerformer", fields: [performedById], references: [id], onDelete: SetNull)
+  
+  serviceProvider   String?          // مقدم الخدمة الخارجي
+  invoiceNumber     String?          // رقم فاتورة
+  
+  // قبل وبعد الصيانة
+  mileageBefore     Int?             // عداد قبل الصيانة
+  mileageAfter      Int?             // عداد بعد الصيانة
+  workingHoursBefore Int?
+  workingHoursAfter  Int?
+  
+  conditionBefore   EquipmentCondition?
+  conditionAfter    EquipmentCondition?
+  
+  // مرفقات
+  photos            String?          // صور (JSON)
+  documents         String?          // مستندات (JSON)
+  notes             String?
+  
+  isWarranty        Boolean          @default(false) // تحت الضمان؟
+  
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  createdBy         Int?
+  updatedBy         Int?
+
+  @@index([equipmentId])
+  @@index([maintenanceType])
+  @@index([maintenanceDate])
+  @@index([nextDueDate])
+  @@index([performedById])
+  @@index([equipmentId, maintenanceDate])
+  @@map("Equipment_Maintenance")
+}
+
+model EquipmentUsage {
+  id              Int         @id @default(autoincrement())
+  
+  equipmentId     Int
+  equipment       Equipment   @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  
+  projectId       Int?
+  project         Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  
+  operatorId      Int?
+  operator        Employee?   @relation("UsageOperator", fields: [operatorId], references: [id], onDelete: SetNull)
+  
+  shift           WorkShift?  // الوردية
+  
+  // فترة الاستخدام
+  startDate       DateTime
+  endDate         DateTime?
+  startMileage    Int?        // عداد عند البداية
+  endMileage      Int?        // عداد عند النهاية
+  workingHours    Float?      // ساعات العمل
+  
+  // الوقود
+  fuelConsumed    Float?      // لتر
+  fuelCost        Float?      // تكلفة الوقود
+  
+  location        String?     // موقع العمل
+  purpose         String?     // الغرض من الاستخدام
+  notes           String?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  createdBy       Int?
+  updatedBy       Int?
+
+  @@index([equipmentId])
+  @@index([projectId])
+  @@index([operatorId])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([equipmentId, startDate])
+  @@map("Equipment_Usage")
+}
+
+model EquipmentCost {
+  id              Int         @id @default(autoincrement())
+  
+  equipmentId     Int
+  equipment       Equipment   @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  
+  costType        CostType
+  amount          Float
+  currency        String      @default("EGP")
+  costDate        DateTime
+  
+  description     String?
+  supplier        String?     // المورد/مقدم الخدمة
+  invoiceNumber   String?     // رقم فاتورة
+  paymentMethod   PaymentMethod?
+  
+  // ربط مع سجل الصيانة إذا كانت تكلفة صيانة
+  maintenanceRecordId Int?
+  
+  notes           String?
+  documents       String?     // مستندات (JSON)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  createdBy       Int?
+  updatedBy       Int?
+
+  @@index([equipmentId])
+  @@index([costType])
+  @@index([costDate])
+  @@index([equipmentId, costDate])
+  @@map("Equipment_Cost")
+}
+
+model FuelLog {
+  id              Int         @id @default(autoincrement())
+  
+  equipmentId     Int
+  equipment       Equipment   @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  
+  fuelDate        DateTime
+  fuelType        FuelType
+  quantity        Float       // لتر
+  pricePerUnit    Float       // سعر اللتر
+  totalCost       Float
+  currency        String      @default("EGP")
+  
+  currentMileage  Int?        // عداد عند التعبئة
+  currentHours    Int?        // ساعات العمل
+  
+  operatorId      Int?        // من قام بالتعبئة
+  operator        Employee?   @relation("FuelOperator", fields: [operatorId], references: [id], onDelete: SetNull)
+  
+  station         String?     // محطة الوقود
+  location        String?     // الموقع
+  invoiceNumber   String?     // رقم فاتورة
+  
+  isFull          Boolean     @default(false) // تنك مليان؟
+  notes           String?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  createdBy       Int?
+  updatedBy       Int?
+
+  @@index([equipmentId])
+  @@index([fuelDate])
+  @@index([operatorId])
+  @@index([equipmentId, fuelDate])
+  @@map("Equipment_Fuel_Log")
+}
+
+model MaintenanceSchedule {
+  id                    Int                 @id @default(autoincrement())
+  
+  equipmentId           Int
+  equipment             Equipment           @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  
+  // نوع الصيانة
+  maintenanceType       MaintenanceType
+  title                 String              // عنوان الصيانة
+  description           String?
+  
+  // التكرار
+  isRecurring           Boolean             @default(true)
+  intervalType          MaintenanceTrackingType  // بالأيام، الساعات، أو الكيلومترات
+  intervalValue         Int                 // كل كم يوم/ساعة/كم
+  
+  // آخر صيانة والقادمة
+  lastPerformedDate     DateTime?
+  lastPerformedMileage  Int?
+  lastPerformedHours    Int?
+  
+  nextDueDate           DateTime?           // التاريخ القادم
+  nextDueMileage        Int?                // العداد القادم
+  nextDueHours          Int?                // الساعات القادمة
+  
+  // التكلفة المتوقعة
+  estimatedCost         Float?
+  estimatedDuration     Float?              // مدة الصيانة (ساعات)
+  
+  // قطع الغيار المطلوبة (للربط مع المخازن لاحقاً)
+  requiredParts         String?             // JSON: [{partId, quantity}]
+  requiredOils          String?             // JSON: [{oilType, quantity}]
+  
+  // إشعارات
+  notifyBeforeDays      Int?                @default(7)   // إشعار قبل كم يوم
+  notifyBeforeKm        Int?                              // إشعار قبل كم كيلو
+  notifyBeforeHours     Int?                              // إشعار قبل كم ساعة
+  
+  priority              MaintenancePriority @default(NORMAL)
+  status                ScheduleStatus      @default(ACTIVE)
+  
+  notes                 String?
+  isActive              Boolean             @default(true)
+  
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  createdBy             Int?
+  updatedBy             Int?
+
+  @@index([equipmentId])
+  @@index([maintenanceType])
+  @@index([nextDueDate])
+  @@index([status])
+  @@index([isActive])
+  @@index([equipmentId, status])
+  @@map("Equipment_Maintenance_Schedule")
+}
+
+model ShiftAssignment {
+  id              Int         @id @default(autoincrement())
+  
+  equipmentId     Int
+  equipment       Equipment   @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  
+  operatorId      Int
+  operator        Employee    @relation("ShiftOperator", fields: [operatorId], references: [id], onDelete: Cascade)
+  
+  shift           WorkShift
+  
+  // فترة التخصيص
+  startDate       DateTime
+  endDate         DateTime?
+  
+  // أيام العمل
+  workDays        String?     // JSON: ["SUNDAY", "MONDAY", ...]
+  
+  projectId       Int?        // المشروع المخصص له
+  project         Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  
+  isActive        Boolean     @default(true)
+  notes           String?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  createdBy       Int?
+  updatedBy       Int?
+
+  @@index([equipmentId])
+  @@index([operatorId])
+  @@index([shift])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([isActive])
+  @@index([equipmentId, shift, isActive])
+  @@map("Equipment_Shift_Assignment")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  USER
+  GUEST
+  MODERATOR
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  ANNOUNCEMENT
+  REMINDER
+  ALERT
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  IMPORTANT
+  HIGH
+  URGENT
+  CRITICAL
+}
+
+enum SettingScope {
+  GLOBAL
+  USER
+  FEATURE
+}
+
+enum SettingCategory {
+  SYSTEM
+  SECURITY
+  PERFORMANCE
+  NOTIFICATION
+  DATABASE
+  LOGGING
+  COMPANY
+  BOT
+}
+
+enum SettingType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+  ARRAY
+}
+
+// Employee Related Enums
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+}
+
+enum EmploymentType {
+  FULL_TIME      // دوام كامل
+  PART_TIME      // دوام جزئي
+  CONTRACT       // تعاقد
+  TEMPORARY      // مؤقت
+  INTERN         // متدرب
+  FREELANCE      // حر
+}
+
+enum ContractType {
+  PERMANENT      // دائم
+  FIXED_TERM     // محدد المدة
+  PROBATION      // تحت الاختبار
+  SEASONAL       // موسمي
+}
+
+enum EmploymentStatus {
+  ACTIVE         // نشط
+  ON_LEAVE       // في إجازة
+  SUSPENDED      // موقوف
+  RESIGNED       // مستقيل
+  TERMINATED     // منهي الخدمة
+  RETIRED        // متقاعد
+}
+
+enum PaymentMethod {
+  CASH           // نقدي
+  BANK_TRANSFER  // تحويل بنكي
+  CHEQUE         // شيك
+  MOBILE_WALLET  // محفظة إلكترونية
+}
+
+enum EducationLevel {
+  HIGH_SCHOOL    // ثانوية عامة
+  DIPLOMA        // دبلوم
+  BACHELOR       // بكالوريوس
+  MASTER         // ماجستير
+  PHD            // دكتوراه
+  VOCATIONAL     // تعليم فني
+  OTHER          // أخرى
+}
+
+// ============================================
+// Equipment Enums
+// ============================================
+
+enum EquipmentStatus {
+  AVAILABLE       // متاحة
+  IN_USE          // قيد الاستخدام
+  MAINTENANCE     // صيانة
+  REPAIR          // إصلاح
+  OUT_OF_SERVICE  // خارج الخدمة
+  RENTED_OUT      // مؤجرة
+  RETIRED         // متقاعدة
+}
+
+enum EquipmentCondition {
+  EXCELLENT       // ممتازة
+  GOOD            // جيدة
+  FAIR            // مقبولة
+  POOR            // سيئة
+  DAMAGED         // متضررة
+}
+
+enum FuelType {
+  DIESEL          // ديزل
+  GASOLINE        // بنزين
+  ELECTRIC        // كهربائي
+  HYBRID          // هجين
+  GAS             // غاز
+}
+
+enum MaintenanceType {
+  PREVENTIVE      // صيانة دورية
+  CORRECTIVE      // إصلاح
+  EMERGENCY       // طارئة
+  INSPECTION      // فحص
+  OVERHAUL        // إصلاح شامل
+  OIL_CHANGE      // تغيير زيت
+  TIRE_CHANGE     // تغيير إطارات
+  REPAIR          // إصلاح
+}
+
+enum CostType {
+  FUEL            // وقود
+  MAINTENANCE     // صيانة
+  REPAIR          // إصلاح
+  INSURANCE       // تأمين
+  LICENSE         // ترخيص
+  PARTS           // قطع غيار
+  LABOR           // عمالة
+  RENTAL          // إيجار
+  DEPRECIATION    // استهلاك
+  OTHER           // أخرى
+}
+
+enum MaintenanceTrackingType {
+  DAYS            // بالأيام
+  HOURS           // بساعات العمل
+  KILOMETERS      // بالكيلومترات
+  BOTH            // بالساعات والكيلومترات
+}
+
+enum WorkShift {
+  MORNING         // صباحية
+  EVENING         // مسائية
+  NIGHT           // ليلية
+  FULL_DAY        // طوال اليوم
+}
+
+enum MaintenancePriority {
+  LOW             // منخفضة
+  NORMAL          // عادية
+  HIGH            // عالية
+  URGENT          // عاجلة
+  CRITICAL        // حرجة
+}
+
+enum ScheduleStatus {
+  ACTIVE          // نشط
+  COMPLETED       // مكتمل
+  OVERDUE         // متأخر
+  CANCELLED       // ملغي
+  PAUSED          // متوقف
+}
+
+enum MaintenanceScheduleType {
+  DAILY           // يومي
+  WEEKLY          // أسبوعي
+  MONTHLY         // شهري
+  QUARTERLY       // ربع سنوي
+  SEMI_ANNUAL     // نصف سنوي
+  ANNUAL          // سنوي
+  BY_MILEAGE      // حسب الكيلومتر
+  BY_HOURS        // حسب ساعات العمل
+  BY_BOTH         // حسب الاثنين (أيهما يأتي أولاً)
+}
+
+enum MaintenanceByType {
+  MILEAGE         // بالكيلومتر
+  HOURS           // بساعات العمل
+}
+
+enum ShiftType {
+  MORNING         // صباحية
+  EVENING         // مسائية
+  NIGHT           // ليلية
+  FLEXIBLE        // مرنة
+}
+
+enum ShiftStatus {
+  SCHEDULED       // مجدولة
+  IN_PROGRESS     // قيد التنفيذ
+  COMPLETED       // مكتملة
+  CANCELLED       // ملغاة
+  NO_SHOW         // لم يحضر
+}

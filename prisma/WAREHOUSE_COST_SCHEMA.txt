@@ -1,0 +1,454 @@
+// ==================== نظام المخازن ====================
+
+// 1. المخزن
+model Warehouse {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  code        String?  @unique
+  location    String?
+  managerId   Int?
+  capacity    Float?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  manager     Employee? @relation("WarehouseManager", fields: [managerId], references: [id], onDelete: SetNull)
+  items       WarehouseItem[]
+  movements   WarehouseMovement[]
+  transfersFrom WarehouseTransfer[] @relation("TransferFrom")
+  transfersTo   WarehouseTransfer[] @relation("TransferTo")
+  inventories WarehouseInventory[]
+  
+  @@index([managerId])
+  @@index([isActive])
+  @@map("warehouses")
+}
+
+// 2. تصنيف المواد
+model WarehouseCategory {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  items       WarehouseItem[]
+  
+  @@map("warehouse_categories")
+}
+
+// 3. الصنف/المادة
+model WarehouseItem {
+  id              Int      @id @default(autoincrement())
+  itemCode        String   @unique
+  name            String
+  categoryId      Int
+  warehouseId     Int
+  unit            String   // شيكارة، طن، متر، لتر، إلخ
+  unitPrice       Float?
+  
+  // الكمية
+  currentStock    Float    @default(0)
+  minStock        Float?
+  maxStock        Float?
+  
+  // معلومات إضافية
+  description     String?
+  barcode         String?  @unique
+  expiryDate      DateTime?
+  supplier        String?
+  location        String?  // موقع داخل المخزن
+  
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  category        WarehouseCategory @relation(fields: [categoryId], references: [id])
+  warehouse       Warehouse @relation(fields: [warehouseId], references: [id])
+  movements       WarehouseMovement[]
+  transfers       WarehouseTransfer[]
+  purchaseRequests WarehousePurchaseRequest[]
+  
+  @@index([categoryId])
+  @@index([warehouseId])
+  @@index([currentStock])
+  @@index([isActive])
+  @@map("warehouse_items")
+}
+
+// 4. حركة المخزون
+model WarehouseMovement {
+  id           Int      @id @default(autoincrement())
+  warehouseId  Int
+  itemId       Int
+  movementType String   // إضافة، صرف، نقل، إرجاع، تعديل
+  quantity     Float
+  
+  // السعر والقيمة
+  unitPrice    Float?
+  totalValue   Float?
+  
+  // التفاصيل
+  date         DateTime @default(now())
+  projectId    Int?
+  employeeId   Int?
+  reference    String?  // رقم مرجعي
+  notes        String?
+  
+  createdBy    Int?
+  createdAt    DateTime @default(now())
+  
+  warehouse    Warehouse @relation(fields: [warehouseId], references: [id])
+  item         WarehouseItem @relation(fields: [itemId], references: [id])
+  project      Project? @relation(fields: [projectId], references: [id])
+  employee     Employee? @relation("WarehouseMovementEmployee", fields: [employeeId], references: [id])
+  
+  @@index([warehouseId])
+  @@index([itemId])
+  @@index([date])
+  @@index([movementType])
+  @@index([projectId])
+  @@map("warehouse_movements")
+}
+
+// 5. النقل بين المخازن
+model WarehouseTransfer {
+  id              Int      @id @default(autoincrement())
+  itemId          Int
+  fromWarehouseId Int
+  toWarehouseId   Int
+  quantity        Float
+  transferDate    DateTime @default(now())
+  
+  status          String   @default("قيد الانتظار") // قيد الانتظار، تم الإرسال، تم الاستلام، ملغي
+  
+  sentBy          Int?
+  receivedBy      Int?
+  notes           String?
+  createdAt       DateTime @default(now())
+  
+  item            WarehouseItem @relation(fields: [itemId], references: [id])
+  fromWarehouse   Warehouse @relation("TransferFrom", fields: [fromWarehouseId], references: [id])
+  toWarehouse     Warehouse @relation("TransferTo", fields: [toWarehouseId], references: [id])
+  
+  @@index([itemId])
+  @@index([fromWarehouseId])
+  @@index([toWarehouseId])
+  @@index([status])
+  @@index([transferDate])
+  @@map("warehouse_transfers")
+}
+
+// 6. الجرد
+model WarehouseInventory {
+  id              Int      @id @default(autoincrement())
+  warehouseId     Int
+  inventoryDate   DateTime @default(now())
+  
+  // النتائج
+  totalItems      Int?
+  totalValue      Float?
+  
+  status          String   @default("جاري") // جاري، مكتمل، ملغي
+  
+  performedBy     Int?
+  notes           String?
+  
+  // التفاصيل (JSON)
+  items           Json?    // [{itemId, expected, actual, diff}]
+  
+  createdAt       DateTime @default(now())
+  
+  warehouse       Warehouse @relation(fields: [warehouseId], references: [id])
+  
+  @@index([warehouseId])
+  @@index([inventoryDate])
+  @@index([status])
+  @@map("warehouse_inventories")
+}
+
+// 7. طلب شراء
+model WarehousePurchaseRequest {
+  id          Int      @id @default(autoincrement())
+  itemId      Int
+  quantity    Float
+  urgency     String   @default("عادي") // عاجل، عادي، منخفض
+  
+  requestDate DateTime @default(now())
+  requestedBy Int
+  
+  status      String   @default("قيد الانتظار") // قيد الانتظار، موافق عليه، مرفوض، تم الشراء
+  
+  notes       String?
+  approvedBy  Int?
+  approvedAt  DateTime?
+  
+  item        WarehouseItem @relation(fields: [itemId], references: [id])
+  requester   Employee @relation("PurchaseRequester", fields: [requestedBy], references: [id])
+  
+  @@index([itemId])
+  @@index([status])
+  @@index([requestDate])
+  @@map("warehouse_purchase_requests")
+}
+
+// ==================== نظام حساب التكاليف ====================
+
+// 1. تصنيف التكلفة
+model CostCategory {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  type        String   // مباشرة، غير مباشرة
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  laborCosts     CostLabor[]
+  materialCosts  CostMaterial[]
+  equipmentCosts CostEquipment[]
+  overheadCosts  CostOverhead[]
+  
+  @@map("cost_categories")
+}
+
+// 2. تكاليف العمالة
+model CostLabor {
+  id              Int      @id @default(autoincrement())
+  projectId       Int
+  employeeId      Int
+  categoryId      Int?
+  date            DateTime @default(now())
+  
+  // الساعات
+  regularHours    Float
+  overtimeHours   Float?
+  
+  // المعدلات
+  hourlyRate      Float
+  overtimeRate    Float?
+  
+  // البدلات
+  allowances      Float?
+  
+  // الحسابات
+  regularPay      Float
+  overtimePay     Float?
+  totalPay        Float
+  
+  notes           String?
+  createdAt       DateTime @default(now())
+  
+  project         Project @relation(fields: [projectId], references: [id])
+  employee        Employee @relation("LaborCost", fields: [employeeId], references: [id])
+  category        CostCategory? @relation(fields: [categoryId], references: [id])
+  
+  @@index([projectId])
+  @@index([employeeId])
+  @@index([date])
+  @@map("cost_labor")
+}
+
+// 3. تكاليف المواد
+model CostMaterial {
+  id              Int      @id @default(autoincrement())
+  projectId       Int
+  itemId          Int?
+  categoryId      Int?
+  date            DateTime @default(now())
+  
+  description     String
+  
+  // الكمية
+  quantity        Float
+  wastePercent    Float?   @default(0)
+  actualQuantity  Float
+  
+  // السعر
+  unitPrice       Float
+  totalCost       Float
+  
+  supplier        String?
+  invoiceNumber   String?
+  notes           String?
+  createdAt       DateTime @default(now())
+  
+  project         Project @relation(fields: [projectId], references: [id])
+  category        CostCategory? @relation(fields: [categoryId], references: [id])
+  
+  @@index([projectId])
+  @@index([date])
+  @@map("cost_materials")
+}
+
+// 4. تكاليف المعدات
+model CostEquipment {
+  id              Int      @id @default(autoincrement())
+  projectId       Int
+  equipmentId     Int?
+  categoryId      Int?
+  date            DateTime @default(now())
+  
+  description     String
+  
+  // الاستخدام
+  hours           Float?
+  days            Float?
+  
+  // التكاليف
+  rentalRate      Float?
+  fuelCost        Float?
+  maintenanceCost Float?
+  operatorCost    Float?
+  
+  // الإجمالي
+  totalCost       Float
+  
+  notes           String?
+  createdAt       DateTime @default(now())
+  
+  project         Project @relation(fields: [projectId], references: [id])
+  equipment       Equipment? @relation("EquipmentCost", fields: [equipmentId], references: [id])
+  category        CostCategory? @relation(fields: [categoryId], references: [id])
+  
+  @@index([projectId])
+  @@index([equipmentId])
+  @@index([date])
+  @@map("cost_equipment")
+}
+
+// 5. المصاريف الإضافية
+model CostOverhead {
+  id            Int      @id @default(autoincrement())
+  projectId     Int
+  categoryId    Int?
+  date          DateTime @default(now())
+  
+  description   String
+  amount        Float
+  
+  // التفاصيل
+  invoiceNumber String?
+  supplier      String?
+  notes         String?
+  createdAt     DateTime @default(now())
+  
+  project       Project @relation(fields: [projectId], references: [id])
+  category      CostCategory? @relation(fields: [categoryId], references: [id])
+  
+  @@index([projectId])
+  @@index([date])
+  @@map("cost_overhead")
+}
+
+// 6. ملخص التكاليف
+model CostSummary {
+  id                      Int      @id @default(autoincrement())
+  projectId               Int      @unique
+  
+  // التكاليف الفعلية
+  actualLaborCost         Float    @default(0)
+  actualMaterialCost      Float    @default(0)
+  actualEquipmentCost     Float    @default(0)
+  actualOverheadCost      Float    @default(0)
+  actualTotalCost         Float    @default(0)
+  
+  // التكاليف المتوقعة
+  estimatedLaborCost      Float?
+  estimatedMaterialCost   Float?
+  estimatedEquipmentCost  Float?
+  estimatedOverheadCost   Float?
+  estimatedTotalCost      Float?
+  
+  // الانحراف
+  laborVariance           Float?
+  materialVariance        Float?
+  equipmentVariance       Float?
+  overheadVariance        Float?
+  totalVariance           Float?
+  
+  // النسب المئوية
+  laborVariancePercent    Float?
+  materialVariancePercent Float?
+  equipmentVariancePercent Float?
+  overheadVariancePercent Float?
+  totalVariancePercent    Float?
+  
+  lastUpdated             DateTime @updatedAt
+  createdAt               DateTime @default(now())
+  
+  project                 Project @relation(fields: [projectId], references: [id])
+  
+  @@index([projectId])
+  @@map("cost_summaries")
+}
+
+// 7. تقارير التكاليف
+model CostReport {
+  id          Int      @id @default(autoincrement())
+  projectId   Int
+  reportType  String   // يومي، أسبوعي، شهري، نهائي
+  startDate   DateTime
+  endDate     DateTime
+  
+  data        Json     // بيانات التقرير
+  summary     Json?    // الملخص
+  
+  createdBy   Int?
+  createdAt   DateTime @default(now())
+  
+  project     Project @relation(fields: [projectId], references: [id])
+  
+  @@index([projectId])
+  @@index([startDate])
+  @@index([endDate])
+  @@map("cost_reports")
+}
+
+// ==================== Enums الجديدة ====================
+
+enum WarehouseMovementType {
+  ADDITION    // إضافة
+  WITHDRAWAL  // صرف
+  TRANSFER    // نقل
+  RETURN      // إرجاع
+  ADJUSTMENT  // تعديل
+  DAMAGED     // تالف
+}
+
+enum TransferStatus {
+  PENDING     // قيد الانتظار
+  SENT        // تم الإرسال
+  RECEIVED    // تم الاستلام
+  CANCELLED   // ملغي
+}
+
+enum PurchaseRequestUrgency {
+  LOW         // منخفض
+  NORMAL      // عادي
+  HIGH        // عالي
+  URGENT      // عاجل
+}
+
+enum PurchaseRequestStatus {
+  PENDING     // قيد الانتظار
+  APPROVED    // موافق عليه
+  REJECTED    // مرفوض
+  PURCHASED   // تم الشراء
+  CANCELLED   // ملغي
+}
+
+enum CostCategoryType {
+  DIRECT      // مباشرة
+  INDIRECT    // غير مباشرة
+}
+
+enum CostReportType {
+  DAILY       // يومي
+  WEEKLY      // أسبوعي
+  MONTHLY     // شهري
+  QUARTERLY   // ربع سنوي
+  FINAL       // نهائي
+}

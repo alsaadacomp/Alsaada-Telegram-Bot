@@ -1,0 +1,206 @@
+// أضف هذا بعد model FuelLog وقبل enum Role
+
+// ============================================
+// Scheduled Maintenance - الصيانة الدورية المجدولة
+// ============================================
+
+model ScheduledMaintenance {
+  id                Int              @id @default(autoincrement())
+  
+  equipmentId       Int
+  equipment         Equipment        @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  
+  // نوع الصيانة الدورية
+  maintenanceType   MaintenanceType
+  title             String                            // عنوان الصيانة
+  description       String?
+  
+  // جدولة الصيانة
+  scheduleType      MaintenanceScheduleType           // يومي، أسبوعي، شهري، بالكيلومتر، بالساعات
+  
+  // حسب التاريخ
+  intervalDays      Int?                              // كل كم يوم
+  nextDueDate       DateTime?
+  
+  // حسب العداد
+  intervalKm        Int?                              // كل كم كيلومتر
+  nextDueKm         Int?
+  
+  // حسب ساعات العمل
+  intervalHours     Int?                              // كل كم ساعة
+  nextDueHours      Int?
+  
+  // التذكير
+  reminderDaysBefore Int?            @default(3)    // تذكير قبل كم يوم
+  reminderKmBefore   Int?            @default(100)  // تذكير قبل كم كيلومتر
+  reminderHoursBefore Int?           @default(10)   // تذكير قبل كم ساعة
+  
+  // التكلفة المتوقعة
+  estimatedCost     Float?
+  estimatedDuration Int?                             // المدة المتوقعة بالدقائق
+  
+  // قطع الغيار المتوقعة (للربط مع المخزون لاحقاً)
+  expectedParts     String?                          // JSON array of part IDs/names
+  expectedOilType   String?
+  expectedOilQuantity Float?
+  
+  // آخر تنفيذ
+  lastPerformedDate DateTime?
+  lastPerformedAt   Int?                             // آخر تنفيذ عند (كم أو ساعة)
+  
+  // الحالة
+  isActive          Boolean          @default(true)
+  isOverdue         Boolean          @default(false) // متأخرة؟
+  
+  notes             String?
+  
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  createdBy         Int?
+  updatedBy         Int?
+
+  @@index([equipmentId])
+  @@index([maintenanceType])
+  @@index([scheduleType])
+  @@index([nextDueDate])
+  @@index([isActive])
+  @@index([isOverdue])
+  @@index([equipmentId, isActive])
+  @@map("Equipment_Scheduled_Maintenance")
+}
+
+// ============================================
+// Shift Management - إدارة الورديات
+// ============================================
+
+model Shift {
+  id               Int              @id @default(autoincrement())
+  
+  name             String           // اسم الوردية
+  nameEn           String?
+  shiftType        ShiftType        // صباحية، مسائية، ليلية
+  
+  startTime        String           // وقت البداية (HH:mm)
+  endTime          String           // وقت النهاية (HH:mm)
+  duration         Int              // المدة بالساعات
+  
+  // أيام العمل (JSON array: ["SUNDAY", "MONDAY", ...])
+  workDays         String?          // أيام الأسبوع
+  
+  // الراحة
+  breakDuration    Int?             @default(0)  // مدة الراحة بالدقائق
+  
+  // معلومات إضافية
+  description      String?
+  isActive         Boolean          @default(true)
+  
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  createdBy        Int?
+  updatedBy        Int?
+  
+  // Relations
+  assignments      ShiftAssignment[]
+
+  @@index([shiftType])
+  @@index([isActive])
+  @@map("Equipment_Shift")
+}
+
+model ShiftAssignment {
+  id              Int         @id @default(autoincrement())
+  
+  // الموظف
+  operatorId      Int
+  operator        Employee    @relation("ShiftOperator", fields: [operatorId], references: [id], onDelete: Cascade)
+  
+  // المعدة
+  equipmentId     Int
+  equipment       Equipment   @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  
+  // الوردية
+  shiftId         Int
+  shift           Shift       @relation(fields: [shiftId], references: [id], onDelete: Restrict)
+  
+  // التاريخ
+  assignmentDate  DateTime    // تاريخ التعيين
+  
+  // الحالة
+  status          ShiftStatus @default(SCHEDULED) // مجدولة، قيد التنفيذ، مكتملة، ملغاة
+  
+  // أوقات فعلية
+  actualStartTime DateTime?   // وقت البدء الفعلي
+  actualEndTime   DateTime?   // وقت الانتهاء الفعلي
+  
+  // عداد عند البداية والنهاية
+  startMileage    Int?
+  endMileage      Int?
+  startHours      Int?
+  endHours        Int?
+  
+  // الموقع/المشروع
+  projectId       Int?
+  project         Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  location        String?     // موقع العمل
+  
+  // ملاحظات
+  notes           String?
+  issues          String?     // مشاكل/ملاحظات
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  createdBy       Int?
+  updatedBy       Int?
+
+  @@index([operatorId])
+  @@index([equipmentId])
+  @@index([shiftId])
+  @@index([assignmentDate])
+  @@index([status])
+  @@index([projectId])
+  @@index([equipmentId, assignmentDate])
+  @@index([operatorId, assignmentDate])
+  @@map("Equipment_Shift_Assignment")
+}
+
+// ============================================
+// Enums - New
+// ============================================
+
+enum MaintenanceScheduleType {
+  DAILY           // يومي
+  WEEKLY          // أسبوعي
+  MONTHLY         // شهري
+  QUARTERLY       // ربع سنوي
+  SEMI_ANNUAL     // نصف سنوي
+  ANNUAL          // سنوي
+  BY_MILEAGE      // حسب الكيلومتر
+  BY_HOURS        // حسب ساعات العمل
+  BY_BOTH         // حسب الاثنين (أيهما يأتي أولاً)
+}
+
+enum MaintenanceTrackingType {
+  HOURS           // تتبع بساعات العمل
+  MILEAGE         // تتبع بالكيلومتر
+  BOTH            // كلاهما
+}
+
+enum MaintenanceByType {
+  MILEAGE         // بالكيلومتر
+  HOURS           // بساعات العمل
+}
+
+enum ShiftType {
+  MORNING         // صباحية
+  EVENING         // مسائية
+  NIGHT           // ليلية
+  FLEXIBLE        // مرنة
+}
+
+enum ShiftStatus {
+  SCHEDULED       // مجدولة
+  IN_PROGRESS     // قيد التنفيذ
+  COMPLETED       // مكتملة
+  CANCELLED       // ملغاة
+  NO_SHOW         // لم يحضر
+}

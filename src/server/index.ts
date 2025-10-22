@@ -1,6 +1,6 @@
 import type { Bot } from '#root/bot/index.js'
 import type { Config } from '#root/config.js'
-import type { Logger } from '#root/logger.js'
+import type { Logger } from '#root/modules/services/logger/index.js'
 import type { Env } from '#root/server/environment.js'
 import { setLogger } from '#root/server/middlewares/logger.js'
 import { requestId } from '#root/server/middlewares/request-id.js'

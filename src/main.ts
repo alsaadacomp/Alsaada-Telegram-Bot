@@ -6,12 +6,14 @@ import type { RunnerHandle } from '@grammyjs/runner'
 import process from 'node:process'
 import { createBot } from '#root/bot/index.js'
 import { config } from '#root/config.js'
-import { logger } from '#root/logger.js'
+import { Database } from '#root/modules/database/index.js'
+import { initSuperAdmin } from '#root/modules/permissions/init-super-admin.js'
+import { logger } from '#root/modules/services/logger/index.js'
 import { createServer, createServerManager } from '#root/server/index.js'
 import { run } from '@grammyjs/runner'
 
 async function startPolling(config: PollingConfig) {
-  const bot = createBot(config.botToken, {
+  const bot = await createBot(config.botToken, {
     config,
     logger,
   })
@@ -21,7 +23,19 @@ async function startPolling(config: PollingConfig) {
   onShutdown(async () => {
     logger.info('Shutdown')
     await runner?.stop()
+    await Database.disconnect()
   })
+
+  // Initialize database connection
+  await Database.connect()
+
+  // Initialize Super Admin from environment
+  await initSuperAdmin(config)
+
+  // Initialize default company
+  const { CompanyService } = await import('#root/modules/company/index.js')
+  await CompanyService.getOrCreate()
+  logger.info('Company initialized')
 
   await Promise.all([
     bot.init(),
@@ -44,7 +58,7 @@ async function startPolling(config: PollingConfig) {
 }
 
 async function startWebhook(config: WebhookConfig) {
-  const bot = createBot(config.botToken, {
+  const bot = await createBot(config.botToken, {
     config,
     logger,
   })
@@ -62,7 +76,19 @@ async function startWebhook(config: WebhookConfig) {
   onShutdown(async () => {
     logger.info('Shutdown')
     await serverManager.stop()
+    await Database.disconnect()
   })
+
+  // Initialize database connection
+  await Database.connect()
+
+  // Initialize Super Admin from environment
+  await initSuperAdmin(config)
+
+  // Initialize default company
+  const { CompanyService } = await import('#root/modules/company/index.js')
+  await CompanyService.getOrCreate()
+  logger.info('Company initialized')
 
   // to prevent receiving updates before the bot is ready
   await bot.init()
