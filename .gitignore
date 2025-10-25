@@ -140,3 +140,5 @@ data/
 
 # Backups
 backups/
+attachments/
+uploads/
