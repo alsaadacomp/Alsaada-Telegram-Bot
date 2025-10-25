@@ -72,6 +72,11 @@ export interface SessionData {
     value: number | string | null
     name: string
   }
+  // Custom reports
+  customReport?: {
+    fields: string[]
+    filters: Record<string, any>
+  }
 }
 
 interface ExtendedContextFlavor {

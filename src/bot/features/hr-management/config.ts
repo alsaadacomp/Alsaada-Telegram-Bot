@@ -54,5 +54,15 @@ export const hrManagementConfig: FeatureConfig = {
       order: 4,
       permissions: ['SUPER_ADMIN'],
     },
+    {
+      id: 'custom-reports',
+      name: '📊 التقارير المخصصة',
+      icon: '📊',
+      description: 'إنشاء تقارير احترافية مخصصة (SUPER_ADMIN فقط)',
+      handler: 'customReportsHandler',
+      enabled: true,
+      order: 5,
+      permissions: ['SUPER_ADMIN'],
+    },
   ],
 }
