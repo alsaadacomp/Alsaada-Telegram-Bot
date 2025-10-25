@@ -18,8 +18,14 @@ import { employeeStatusSimpleHandler } from './handlers/employee-status-simple.h
 import { addEmployeeHandler } from './handlers/employees-add.handler.js'
 // Import handlers
 import { employeesListHandler } from './handlers/employees-list.handler.js'
-import { viewCurrentEmployeesHandler } from './handlers/employees-view-current.handler.js'
+// Import filter handlers (replaces view-current)
+import { employeeFiltersHandler } from './handlers/employee-filters.handler.js'
+import { employeeFilterResultsHandler } from './handlers/employee-filter-results.handler.js'
+import { employeeExportHandler } from './handlers/employee-export.handler.js'
+// Import previous employees handlers
 import { viewPreviousEmployeesHandler } from './handlers/employees-view-previous.handler.js'
+import { employeePreviousFiltersHandler } from './handlers/employee-previous-filters.handler.js'
+import { employeePreviousFilterResultsHandler } from './handlers/employee-previous-filter-results.handler.js'
 // Import main handler
 import { hrMainHandler } from './handlers/hr-main.handler.js'
 import { leavesHandler } from './handlers/leaves.handler.js'
@@ -36,9 +42,17 @@ composer.use(advancesHandler)
 composer.use(leavesHandler)
 composer.use(payrollHandler)
 
+// Register NEW filter handlers
+composer.use(employeeFiltersHandler)
+composer.use(employeeFilterResultsHandler)
+composer.use(employeeExportHandler)
+
+// Register previous employee filter handlers
+composer.use(employeePreviousFiltersHandler)
+composer.use(employeePreviousFilterResultsHandler)
+
 // Register sub-handlers
 composer.use(addEmployeeHandler)
-composer.use(viewCurrentEmployeesHandler)
 composer.use(viewPreviousEmployeesHandler)
 composer.use(employeeDetailsHandler)
 composer.use(employeeEditHandler)

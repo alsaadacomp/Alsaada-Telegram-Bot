@@ -56,7 +56,7 @@ viewCurrentEmployeesHandler.callbackQuery(/^hr:employees:view-current(:\d+)?$/, 
     
     // إضافة أزرار العاملين (عمود واحد)
     for (const emp of currentPageEmployees) {
-      const empText = `${emp.nickname || emp.fullName} (${emp.position?.titleAr || emp.position?.title || 'غير محدد'})`
+      const empText = `${emp.nickname || emp.fullName} (${emp.position?.titleAr || 'غير محدد'})`
       keyboard.text(
         empText.length > 30 ? empText.substring(0, 27) + '...' : empText,
         `hr:employee:details:${emp.id}`

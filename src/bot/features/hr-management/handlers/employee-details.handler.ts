@@ -111,12 +111,9 @@ employeeDetailsHandler.callbackQuery(/^hr:employee:details:(\d+)$/, async (ctx) 
     message += `📝 سبب الفصل: ${employee.terminationReason || 'غير محدد'}\n\n`
 
     // معلومات الإقامة
-    message += '📍 معلومات الإقامة:\n'
+    message += '📍 **معلومات الإقامة:**\n'
     message += `📍 المحافظة: ${employee.governorate ? employee.governorate.nameAr : 'غير محدد'}\n`
-    message += `🌍 الاسم الإنجليزي: ${employee.governorate ? employee.governorate.nameEn : 'غير محدد'}\n`
-    message += `🏢 كود المحافظة: ${employee.governorate ? employee.governorate.code : 'غير محدد'}\n`
-    message += `🗺️ المنطقة: ${employee.governorate ? (employee.governorate.region || 'غير محدد') : 'غير محدد'}\n`
-    message += `🏠 العنوان: ${employee.currentAddress || 'غير محدد'}\n`
+    message += `🏠 العنوان الحالي: ${employee.currentAddress || 'غير محدد'}\n`
     message += `🏠 العنوان الدائم: ${employee.permanentAddress || 'غير محدد'}\n\n`
 
     // معلومات إضافية
@@ -147,37 +144,53 @@ employeeDetailsHandler.callbackQuery(/^hr:employee:details:(\d+)$/, async (ctx) 
 
     // معلومات الرواتب والبدلات (SUPER_ADMIN فقط)
     if (ctx.dbUser?.role === 'SUPER_ADMIN') {
-      message += '💰 معلومات الرواتب والبدلات:\n'
-      message += `💵 الراتب الأساسي: ${employee.basicSalary || 0} جنيه\n`
-      message += `💸 البدلات: ${employee.allowances || 0} جنيه\n`
-      message += `💳 إجمالي الراتب: ${employee.totalSalary || 0} جنيه\n`
-      message += `💱 العملة: ${employee.currency || 'EGP'}\n`
+      message += '💰 **معلومات الرواتب والبدلات:**\n'
+      message += `💵 الراتب الأساسي: ${employee.basicSalary || 0} ${employee.currency || 'EGP'}\n`
+      message += `💸 البدلات: ${employee.allowances || 0} ${employee.currency || 'EGP'}\n`
+      message += `💳 إجمالي الراتب: ${employee.totalSalary || 0} ${employee.currency || 'EGP'}\n`
       message += `🏦 طريقة الدفع: ${employee.paymentMethod || 'غير محدد'}\n`
-      message += `🏦 اسم البنك: ${employee.bankName || 'غير محدد'}\n`
-      message += `💳 رقم الحساب: ${employee.bankAccountNumber || 'غير محدد'}\n`
-      message += `🏦 رقم الآيبان: ${employee.iban || 'غير محدد'}\n`
-      message += `📱 رقم التحويل الأول: ${employee.transferNumber1 ? `${employee.transferNumber1} (${employee.transferType1 === 'INSTAPAY' ? 'إنستاباي' : employee.transferType1 === 'CASH' ? 'كاش' : employee.transferType1 || 'غير محدد'})` : 'غير محدد'}\n`
-      message += `📱 رقم التحويل الثاني: ${employee.transferNumber2 ? `${employee.transferNumber2} (${employee.transferType2 === 'INSTAPAY' ? 'إنستاباي' : employee.transferType2 === 'CASH' ? 'كاش' : employee.transferType2 || 'غير محدد'})` : 'غير محدد'}\n`
-      message += `🏥 رقم التأمين الاجتماعي: ${employee.socialInsuranceNumber || 'غير محدد'}\n`
-      message += `📊 الرقم الضريبي: ${employee.taxNumber || 'غير محدد'}\n`
-      message += `📅 تاريخ بداية التأمين: ${employee.insuranceStartDate ? employee.insuranceStartDate.toLocaleDateString('ar-EG') : 'غير محدد'}\n\n`
+      
+      if (employee.bankName) {
+        message += `🏦 اسم البنك: ${employee.bankName}\n`
+      }
+      if (employee.bankAccountNumber) {
+        message += `💳 رقم الحساب: ${employee.bankAccountNumber}\n`
+      }
+      if (employee.iban) {
+        message += `🏦 رقم الآيبان: ${employee.iban}\n`
+      }
+      if (employee.transferNumber1) {
+        const type1 = employee.transferType1 === 'INSTAPAY' ? 'إنستاباي' : employee.transferType1 === 'CASH' ? 'كاش' : employee.transferType1 || ''
+        message += `📱 رقم التحويل 1: ${employee.transferNumber1}${type1 ? ` (${type1})` : ''}\n`
+      }
+      if (employee.transferNumber2) {
+        const type2 = employee.transferType2 === 'INSTAPAY' ? 'إنستاباي' : employee.transferType2 === 'CASH' ? 'كاش' : employee.transferType2 || ''
+        message += `📱 رقم التحويل 2: ${employee.transferNumber2}${type2 ? ` (${type2})` : ''}\n`
+      }
+      if (employee.socialInsuranceNumber) {
+        message += `🏥 رقم التأمين: ${employee.socialInsuranceNumber}\n`
+      }
+      if (employee.taxNumber) {
+        message += `📊 الرقم الضريبي: ${employee.taxNumber}\n`
+      }
+      if (employee.insuranceStartDate) {
+        message += `📅 بداية التأمين: ${employee.insuranceStartDate.toLocaleDateString('ar-EG')}\n`
+      }
+      message += '\n'
     }
 
     // معلومات الاتصال الطارئ
-    message += '🚨 معلومات الاتصال الطارئ:\n'
+    message += '🚨 **معلومات الاتصال الطارئ:**\n'
     message += `👤 اسم جهة الاتصال: ${employee.emergencyContactName || 'غير محدد'}\n`
     message += `📱 هاتف جهة الاتصال: ${employee.emergencyContactPhone || 'غير محدد'}\n`
     message += `👥 صلة القرابة: ${employee.emergencyContactRelation || 'غير محدد'}\n\n`
 
     // معلومات التعليم
-    message += '🎓 معلومات التعليم:\n'
+    message += '🎓 **معلومات التعليم:**\n'
     message += `📚 مستوى التعليم: ${employee.educationLevel || 'غير محدد'}\n`
     message += `🎯 التخصص: ${employee.major || 'غير محدد'}\n`
     message += `🏫 الجامعة: ${employee.university || 'غير محدد'}\n`
     message += `📅 سنة التخرج: ${employee.graduationYear || 'غير محدد'}\n`
-    message += `🏆 الشهادات: ${employee.certifications?.length || 0}\n`
-    message += `🛠️ المهارات: ${employee.skills?.map(s => s.name).join(', ') || 'غير محدد'}\n`
-    message += `💼 الخبرة السابقة: ${employee.workHistory?.length || 0} وظيفة\n`
     message += `📊 سنوات الخبرة: ${employee.yearsOfExperience || 0}\n\n`
 
     // معلومات العمل
@@ -221,11 +234,8 @@ employeeDetailsHandler.callbackQuery(/^hr:employee:details:(\d+)$/, async (ctx) 
     }
 
     // زر الرجوع
-    const backButton = isCurrentEmployee
-      ? 'hr:employees:view-current'
-      : 'hr:employees:view-previous'
-
-    keyboard.text('⬅️ رجوع', backButton)
+    keyboard.row()
+    keyboard.text('⬅️ رجوع', 'employeesListHandler')
 
     await ctx.editMessageText(message, {
       reply_markup: keyboard,

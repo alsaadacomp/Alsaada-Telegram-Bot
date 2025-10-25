@@ -66,6 +66,12 @@ export interface SessionData {
     dateField: 'resignationDate' | 'terminationDate' | 'retirementDate'
     dateType: 'today' | 'custom'
   }
+  // Employee filter state
+  lastFilter?: {
+    type: 'department' | 'governorate' | 'position' | 'status' | 'all'
+    value: number | string | null
+    name: string
+  }
 }
 
 interface ExtendedContextFlavor {

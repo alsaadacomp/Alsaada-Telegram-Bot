@@ -1001,7 +1001,7 @@ addEmployeeHandler.callbackQuery('confirm:save:employee', async (ctx) => {
 
     // إرسال الرسالة النهائية مع أزرار التنقل
     const keyboard = new InlineKeyboard()
-      .text('🏠 القائمة الرئيسية', 'main:menu')
+      .text('🏠 القائمة الرئيسية', 'menu:back')
       .text('➕ إضافة موظف جديد', 'hr:employees:add')
 
     await ctx.reply(fullDetailsMessage, {

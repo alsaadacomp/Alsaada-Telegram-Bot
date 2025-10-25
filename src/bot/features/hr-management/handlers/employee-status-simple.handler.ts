@@ -179,6 +179,9 @@ employeeStatusSimpleHandler.callbackQuery(/^hr:employee:status:change:(\d+):(.+)
       data: updateData
     })
 
+    // البحث عن المستخدم الذي قام بالتغيير
+    const adminUser = ctx.from ? await prisma.user.findUnique({ where: { telegramId: BigInt(ctx.from.id) } }) : null
+
     // حفظ في السجل
     await prisma.auditLog.create({
       data: {
@@ -189,7 +192,7 @@ employeeStatusSimpleHandler.callbackQuery(/^hr:employee:status:change:(\d+):(.+)
         fieldName: 'employmentStatus',
         oldValue: currentStatus,
         newValue: statusLabel,
-        changedByUserId: ctx.from?.id,
+        changedByUserId: adminUser?.id,
         description: `تغيير الحالة إلى: ${statusLabel}`,
         metadata: {
           statusDate: new Date()
@@ -306,6 +309,7 @@ employeeStatusSimpleHandler.callbackQuery(/^hr:employee:status:simple:date:(\d+)
     }
 
     const prisma = Database.prisma
+    const adminUser = ctx.from ? await prisma.user.findUnique({ where: { telegramId: BigInt(ctx.from.id) } }) : null
     
     // تحديث الحالة والتاريخ
     const updateData: any = {
@@ -329,7 +333,7 @@ employeeStatusSimpleHandler.callbackQuery(/^hr:employee:status:simple:date:(\d+)
         fieldName: 'employmentStatus',
         oldValue: 'CURRENT',
         newValue: newStatus,
-        changedByUserId: ctx.from?.id,
+        changedByUserId: adminUser?.id,
         description: `إنهاء العمل: ${newStatus}`,
         metadata: {
           statusDate: selectedDate
@@ -420,6 +424,7 @@ employeeStatusSimpleHandler.on('message:text', async (ctx) => {
     }
 
     const prisma = Database.prisma
+    const adminUser = ctx.from ? await prisma.user.findUnique({ where: { telegramId: BigInt(ctx.from.id) } }) : null
     
     // تحديث الحالة والتاريخ
     const updateData: any = {
@@ -443,7 +448,7 @@ employeeStatusSimpleHandler.on('message:text', async (ctx) => {
         fieldName: 'employmentStatus',
         oldValue: 'CURRENT',
         newValue: newStatus,
-        changedByUserId: ctx.from?.id,
+        changedByUserId: adminUser?.id,
         description: `إنهاء العمل: ${newStatus}`,
         metadata: {
           statusDate: parsedDate
