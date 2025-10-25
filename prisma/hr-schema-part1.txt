@@ -1,0 +1,299 @@
+// ============================================
+// HR MANAGEMENT SYSTEM - COMPLETE SCHEMA
+// نظام إدارة شئون العاملين - المخطط الكامل
+// ============================================
+// جميع الجداول تبدأ بـ HR_ لتكون مرتبة في Prisma Studio
+// ============================================
+
+// سيتم دمج هذا الملف مع schema.prisma الأساسي
+// يحتوي على جميع جداول نظام شئون العاملين فقط
+
+// ============================================
+// 1. الهيكل التنظيمي
+// ============================================
+
+model HR_Department {
+  id          Int        @id @default(autoincrement())
+  name        String
+  nameEn      String?
+  code        String     @unique
+  description String?
+  managerId   Int?
+  orderIndex  Int        @default(0)
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  createdBy   Int?
+  updatedBy   Int?
+
+  // Relations
+  positions   HR_Position[]
+  employees   HR_Employee[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([orderIndex])
+  @@index([name])
+  @@index([createdAt])
+}
+
+model HR_Position {
+  id            Int           @id @default(autoincrement())
+  title         String
+  titleAr       String
+  code          String        @unique
+  description   String?
+  
+  // Department Relation
+  departmentId  Int
+  department    HR_Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  
+  orderIndex    Int           @default(0)
+  isActive      Boolean       @default(true)
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  createdBy     Int?
+  updatedBy     Int?
+  
+  // Relations
+  employees     HR_Employee[]
+
+  @@index([code])
+  @@index([departmentId])
+  @@index([isActive])
+  @@index([title])
+  @@index([titleAr])
+  @@index([createdAt])
+}
+
+// ============================================
+// 2. بيانات العاملين
+// ============================================
+
+model HR_Employee {
+  id                    Int              @id @default(autoincrement())
+  
+  // معلومات أساسية
+  employeeCode          String           @unique
+  firstName             String
+  firstNameEn           String?
+  secondName            String?
+  secondNameEn          String?
+  thirdName             String?
+  thirdNameEn           String?
+  lastName              String
+  lastNameEn            String?
+  fullName              String
+  fullNameEn            String?
+  
+  // معلومات شخصية
+  nationalId            String           @unique
+  passportNumber        String?
+  gender                Gender
+  dateOfBirth           DateTime
+  placeOfBirth          String?
+  nationality           String
+  maritalStatus         MaritalStatus
+  religion              String?
+  bloodType             String?
+  
+  // معلومات الاتصال
+  personalEmail         String?
+  workEmail             String?
+  personalPhone         String
+  workPhone             String?
+  emergencyContactName  String
+  emergencyContactPhone String
+  emergencyContactRelation String?
+  
+  // العنوان
+  currentAddress        String
+  currentAddressEn      String?
+  permanentAddress      String?
+  governorateId         Int?
+  governorate           Governorate?     @relation("EmployeeGovernorate", fields: [governorateId], references: [id], onDelete: SetNull)
+  city                  String
+  region                String?
+  country               String           @default("Egypt")
+  postalCode            String?
+  
+  // معلومات وظيفية
+  companyId             Int
+  company               Company          @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  
+  departmentId          Int
+  department            HR_Department    @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  
+  positionId            Int
+  position              HR_Position      @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  
+  employmentType        EmploymentType
+  contractType          ContractType
+  employmentStatus      EmploymentStatus @default(ACTIVE)
+  
+  hireDate              DateTime
+  confirmationDate      DateTime?
+  resignationDate       DateTime?
+  terminationDate       DateTime?
+  terminationReason     String?
+  
+  // الراتب والمزايا
+  basicSalary           Float
+  allowances            Float?           @default(0)
+  totalSalary           Float
+  currency              String           @default("EGP")
+  paymentMethod         PaymentMethod    @default(BANK_TRANSFER)
+  bankName              String?
+  bankAccountNumber     String?
+  iban                  String?
+  
+  // التأمينات والضرائب
+  socialInsuranceNumber String?
+  taxNumber             String?
+  insuranceStartDate    DateTime?
+  
+  // معلومات العمل
+  directManagerId       Int?
+  directManager         HR_Employee?     @relation("ManagerSubordinates", fields: [directManagerId], references: [id], onDelete: SetNull)
+  subordinates          HR_Employee[]    @relation("ManagerSubordinates")
+  
+  workSchedule          String?
+  workLocation          String?
+  
+  // 🆕 معلومات العمل الصحراوي
+  isFieldWorker         Boolean          @default(true)
+  rotationSchedule      String?
+  fieldAllowanceRate    Float?           @default(0)
+  housingAllowance      Float?           @default(0)
+  transportAllowance    Float?           @default(0)
+  foodAllowance         Float?           @default(0)
+  currentRotationId     Int?
+  lastRotationEndDate   DateTime?
+  nextRotationStartDate DateTime?
+  
+  // المؤهلات
+  educationLevel        EducationLevel?
+  major                 String?
+  university            String?
+  graduationYear        Int?
+  certifications        String?
+  
+  // المهارات والخبرات
+  skills                String?
+  previousExperience    String?
+  yearsOfExperience     Int?             @default(0)
+  
+  // الوثائق
+  profilePhoto          String?
+  cv                    String?
+  documents             String?
+  
+  // الإجازات
+  annualLeaveBalance    Int              @default(21)
+  sickLeaveBalance      Int              @default(180)
+  casualLeaveBalance    Int              @default(7)
+  
+  // الحضور والانصراف
+  attendanceRequired    Boolean          @default(false)
+  fingerprintId         String?
+  
+  // ملاحظات وحالة
+  notes                 String?
+  isActive              Boolean          @default(true)
+  
+  // معلومات التتبع
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  createdBy             Int?
+  updatedBy             Int?
+  
+  // Relations - HR
+  rotations             HR_WorkRotation[]       @relation("EmployeeRotations")
+  leaves                HR_EmployeeLeave[]      @relation("EmployeeLeaves")
+  leaveReplacements     HR_EmployeeLeave[]      @relation("LeaveReplacements")
+  advances              HR_EmployeeAdvance[]    @relation("EmployeeAdvances")
+  payrolls              HR_MonthlyPayroll[]     @relation("EmployeePayrolls")
+  attendanceExceptions  HR_AttendanceException[]
+  
+  // Relations - Equipment
+  operatedEquipment     Equipment[]             @relation("EquipmentOperator")
+  performedMaintenance  MaintenanceRecord[]     @relation("MaintenancePerformer")
+  equipmentUsages       EquipmentUsage[]        @relation("UsageOperator")
+  fuelLogs              FuelLog[]               @relation("FuelOperator")
+  shiftAssignments      ShiftAssignment[]       @relation("ShiftOperator")
+
+  @@index([employeeCode])
+  @@index([nationalId])
+  @@index([companyId])
+  @@index([departmentId])
+  @@index([positionId])
+  @@index([directManagerId])
+  @@index([employmentStatus])
+  @@index([employmentType])
+  @@index([isActive])
+  @@index([hireDate])
+  @@index([fullName])
+  @@index([firstName, lastName])
+  @@index([isFieldWorker])
+  @@index([currentRotationId])
+}
+
+// ============================================
+// 3. نظام الدوريات (للعمل الصحراوي)
+// ============================================
+
+model HR_WorkRotation {
+  id                    Int                 @id @default(autoincrement())
+  
+  employeeId            Int
+  employee              HR_Employee         @relation("EmployeeRotations", fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  // نوع الدورة
+  rotationType          RotationType        @default(STANDARD)
+  workDays              Int
+  restDays              Int
+  
+  // الفترة
+  startDate             DateTime
+  expectedEndDate       DateTime
+  actualEndDate         DateTime?
+  
+  // الموقع
+  projectId             Int?
+  project               Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  campLocation          String?
+  accommodationType     String?
+  
+  // الحالة
+  status                RotationStatus      @default(SCHEDULED)
+  
+  // المغادرة المبكرة
+  earlyDeparture        Boolean             @default(false)
+  earlyDepartureDate    DateTime?
+  earlyDepartureReason  String?
+  
+  // التمديد
+  extended              Boolean             @default(false)
+  extensionDays         Int?
+  extensionReason       String?
+  
+  // ملاحظات
+  notes                 String?
+  performanceNotes      String?
+  
+  isActive              Boolean             @default(true)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  createdBy             Int?
+  updatedBy             Int?
+
+  @@index([employeeId])
+  @@index([projectId])
+  @@index([status])
+  @@index([startDate])
+  @@index([expectedEndDate])
+  @@index([rotationType])
+}
+
+// بقية الجداول تأتي في التعليق التالي...

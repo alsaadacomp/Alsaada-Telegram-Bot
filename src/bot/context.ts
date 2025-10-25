@@ -43,6 +43,29 @@ export interface SessionData {
     variables: any[]
     selectedVariableIndex?: number
   }
+  // Employee editing
+  editingField?: {
+    employeeId: number
+    fieldName: string
+    fieldLabel: string
+    inputType: string
+  }
+  // Sequential editing for transfer numbers
+  sequentialEdit?: {
+    employeeId: number
+    step: 'number' | 'type'
+    transferField: 'transferNumber1' | 'transferNumber2'
+    transferTypeField: 'transferType1' | 'transferType2'
+    newValue?: string
+  }
+  // Date management for status changes
+  statusChangeEdit?: {
+    employeeId: number
+    newStatus: string
+    step: 'confirm' | 'date' | 'awaiting_date_selection' | 'awaiting_date_input'
+    dateField: 'resignationDate' | 'terminationDate' | 'retirementDate'
+    dateType: 'today' | 'custom'
+  }
 }
 
 interface ExtendedContextFlavor {

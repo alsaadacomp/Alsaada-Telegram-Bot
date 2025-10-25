@@ -17,6 +17,8 @@ async function seedPositions() {
       code: 'CAT-01',
       departmentId: deptMap.get('CAT'),
       orderIndex: 1,
+      defaultWorkDaysPerCycle: 30,
+      defaultLeaveDaysPerCycle: 10,
     },
     {
       title: 'Catering Chef',
@@ -24,6 +26,8 @@ async function seedPositions() {
       code: 'CAT-02',
       departmentId: deptMap.get('CAT'),
       orderIndex: 2,
+      defaultWorkDaysPerCycle: 30,
+      defaultLeaveDaysPerCycle: 10,
     },
 
     // إدارة الصيانة (MNT) - 4 وظائف
@@ -63,6 +67,8 @@ async function seedPositions() {
       code: 'EQP-01',
       departmentId: deptMap.get('EQP'),
       orderIndex: 1,
+      defaultWorkDaysPerCycle: 21,
+      defaultLeaveDaysPerCycle: 7,
     },
     {
       title: 'Bulldozer Driver',
@@ -141,6 +147,8 @@ async function seedPositions() {
       code: 'ADM-01',
       departmentId: deptMap.get('ADM'),
       orderIndex: 1,
+      defaultWorkDaysPerCycle: 30,
+      defaultLeaveDaysPerCycle: 10,
     },
     {
       title: 'Executive Administrator',

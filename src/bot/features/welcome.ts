@@ -5,9 +5,11 @@ import { GREETING_CONVERSATION } from '#root/modules/interaction/wizards/greetin
 import { JOIN_REQUEST_CONVERSATION } from '#root/modules/interaction/wizards/join-request.js'
 import { Composer, InlineKeyboard, Keyboard } from 'grammy'
 
-const composer = new Composer<Context>()
+// Create TWO composers: one for specific handlers, one for generic text
+const specificHandlers = new Composer<Context>()
+const genericTextHandler = new Composer<Context>()
 
-const feature = composer.chatType('private')
+const feature = specificHandlers.chatType('private')
 
 // Helper function to get role display name
 function getRoleDisplayName(role: string): string {
@@ -362,17 +364,24 @@ feature.command('greeting', logHandle('command-greeting'), (ctx) => {
   return ctx.conversation.enter(GREETING_CONVERSATION)
 })
 
-// معالج النص لتعديل الملف الشخصي
-feature.on('message:text', async (ctx, next) => {
+// معالج النص لتعديل الملف الشخصي - في generic handler منفصل
+genericTextHandler.on('message:text', async (ctx, next) => {
   console.log('Welcome text handler called:', {
     profileEditField: ctx.session.profileEditField,
     text: ctx.message.text,
     hasDbUser: !!ctx.dbUser,
   })
 
-  // التحقق من وجود حقل التعديل في الجلسة
-  if (!ctx.session.profileEditField || !ctx.dbUser) {
-    console.log('No profile edit field or dbUser, calling next()')
+  // ⚠️ CRITICAL: دع النماذج النشطة (مثل إضافة موظف) تعالج الرسائل أولاً
+  // إذا لم يكن هناك حقل للتعديل، دع الـ handlers الأخرى تعالج الرسالة
+  if (!ctx.session.profileEditField) {
+    console.log('No profile edit field, passing to next handler')
+    return next()
+  }
+  
+  // التحقق من وجود المستخدم
+  if (!ctx.dbUser) {
+    console.log('No dbUser, calling next()')
     return next()
   }
 
@@ -455,4 +464,4 @@ function isValidPhone(phone: string): boolean {
   return phoneRegex.test(phone)
 }
 
-export { composer as welcomeFeature }
+export { specificHandlers as welcomeFeature, genericTextHandler as welcomeGenericHandler }

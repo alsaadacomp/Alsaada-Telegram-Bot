@@ -48,21 +48,9 @@ export async function initSuperAdmin(config: Config): Promise<void> {
         data: { role: 'SUPER_ADMIN', isActive: true },
       })
 
-      // Log the role change
-      await Database.prisma.roleChange.create({
-        data: {
-          userId: user.id,
-          oldRole: user.role,
-          newRole: 'SUPER_ADMIN',
-          changedBy: user.id, // Self-assigned from environment
-          reason: 'تعيين تلقائي من متغيرات البيئة (SUPER_ADMIN_ID)',
-        },
-      })
-
       logger.info({
         userId: user.id,
         telegramId: telegramId.toString(),
-        oldRole: user.role,
       }, 'Existing user promoted to Super Admin from environment')
     }
     else {

@@ -9,7 +9,7 @@ import { sendNotificationConversation } from '#root/bot/features/notifications-p
 import { featureLoader, featureRegistry } from '#root/bot/features/registry/index.js'
 import { settingsFeatureComposer } from '#root/bot/features/settings/index.js'
 import { unhandledFeature } from '#root/bot/features/unhandled.js'
-import { welcomeFeature } from '#root/bot/features/welcome.js'
+import { welcomeFeature, welcomeGenericHandler } from '#root/bot/features/welcome.js'
 import { errorHandler } from '#root/bot/handlers/error.js'
 import { session } from '#root/bot/middlewares/session.js'
 import { updateLogger } from '#root/bot/middlewares/update-logger.js'
@@ -135,15 +135,11 @@ export async function createBot(token: string, dependencies: Dependencies, botCo
   protectedBot.use(joinRequestConversation())
   protectedBot.use(sendNotificationConversation()) // MUST be registered with other conversations!
 
-  // Handlers
+  // Register welcome feature specific handlers FIRST (commands and keyboard buttons)
+  // This ensures main menu and profile buttons work immediately
   protectedBot.use(welcomeFeature)
-  protectedBot.use(settingsFeatureComposer) // Settings feature
-  protectedBot.use(adminFeature)
-  if (isMultipleLocales)
-    protectedBot.use(languageFeature)
 
-  // Load features BEFORE setting up handlers
-  // This ensures features are ready when bot starts
+  // Load features AFTER welcome buttons but BEFORE form handlers
   const loadResult = await featureLoader.loadAll()
   logger.info({
     loaded: loadResult.loaded,
@@ -151,7 +147,8 @@ export async function createBot(token: string, dependencies: Dependencies, botCo
     features: loadResult.loadedFeatures,
   }, 'Features loaded')
 
-  // Register all feature composers FIRST (so they can handle specific callbacks)
+  // Register all feature composers (for callbacks and FORM handling)
+  // These have PRIORITY for handling active forms like addEmployee
   loadResult.loadedFeatures.forEach((featureId) => {
     const feature = featureRegistry.get(featureId)
     if (feature && feature.composer) {
@@ -160,8 +157,17 @@ export async function createBot(token: string, dependencies: Dependencies, botCo
     }
   })
 
+  // Then register general handlers
+  protectedBot.use(settingsFeatureComposer) // Settings feature
+  protectedBot.use(adminFeature)
+  if (isMultipleLocales)
+    protectedBot.use(languageFeature)
+
   // Main menu (should be AFTER feature composers so features handle their callbacks first)
   protectedBot.use(mainMenuComposer)
+  
+  // Generic text handler from welcome (LOWEST priority - only for profile editing)
+  protectedBot.use(welcomeGenericHandler)
 
   // must be the last handler
   protectedBot.use(unhandledFeature)

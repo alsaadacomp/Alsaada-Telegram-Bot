@@ -37,10 +37,11 @@ async function startPolling(config: PollingConfig) {
   await CompanyService.getOrCreate()
   logger.info('Company initialized')
 
-  await Promise.all([
-    bot.init(),
-    bot.api.deleteWebhook(),
-  ])
+  // Initialize bot
+  await bot.init()
+
+  // Try to delete webhook with retry logic
+  await deleteWebhookWithRetry(bot.api, logger)
 
   // start bot
   runner = run(bot, {
@@ -100,15 +101,8 @@ async function startWebhook(config: WebhookConfig) {
     url: info.url,
   })
 
-  // set webhook
-  await bot.api.setWebhook(config.botWebhook, {
-    allowed_updates: config.botAllowedUpdates,
-    secret_token: config.botWebhookSecret,
-  })
-  logger.info({
-    msg: 'Webhook was set',
-    url: config.botWebhook,
-  })
+  // set webhook with retry logic
+  await setWebhookWithRetry(bot.api, config, logger)
 }
 
 try {
@@ -123,6 +117,70 @@ catch (error) {
 }
 
 // Utils
+
+async function deleteWebhookWithRetry(api: any, logger: any, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await api.deleteWebhook()
+      logger.info('Webhook deleted successfully')
+      return
+    }
+    catch (error: any) {
+      logger.warn({
+        attempt,
+        maxRetries,
+        error: error.message || error,
+      }, `Failed to delete webhook (attempt ${attempt}/${maxRetries})`)
+      
+      if (attempt === maxRetries) {
+        logger.error({
+          error: error.message || error,
+        }, 'Failed to delete webhook after all retries. Bot will continue in polling mode.')
+        return
+      }
+      
+      // Wait before retry (exponential backoff)
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
+      logger.info(`Retrying webhook deletion in ${delay}ms...`)
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+}
+
+async function setWebhookWithRetry(api: any, config: any, logger: any, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await api.setWebhook(config.botWebhook, {
+        allowed_updates: config.botAllowedUpdates,
+        secret_token: config.botWebhookSecret,
+      })
+      logger.info({
+        msg: 'Webhook was set',
+        url: config.botWebhook,
+      })
+      return
+    }
+    catch (error: any) {
+      logger.warn({
+        attempt,
+        maxRetries,
+        error: error.message || error,
+      }, `Failed to set webhook (attempt ${attempt}/${maxRetries})`)
+      
+      if (attempt === maxRetries) {
+        logger.error({
+          error: error.message || error,
+        }, 'Failed to set webhook after all retries. Server will continue but webhook may not work.')
+        return
+      }
+      
+      // Wait before retry (exponential backoff)
+      const delay = Math.min(1000 * Math.pow(2, attempt - 1), 5000)
+      logger.info(`Retrying webhook setup in ${delay}ms...`)
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+}
 
 function onShutdown(cleanUp: () => Promise<void>) {
   let isShuttingDown = false
