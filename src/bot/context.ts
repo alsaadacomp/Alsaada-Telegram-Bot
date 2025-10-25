@@ -76,6 +76,16 @@ export interface SessionData {
   customReport?: {
     fields: string[]
     filters: Record<string, any>
+    advancedFilters?: {
+      hireDateFrom?: string
+      hireDateTo?: string
+      salaryFrom?: number
+      salaryTo?: number
+      ageFrom?: number
+      ageTo?: number
+      experienceFrom?: number
+      experienceTo?: number
+    }
   }
 }
 

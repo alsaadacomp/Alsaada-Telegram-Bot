@@ -113,12 +113,28 @@ customReportsEmployeeHandler.callbackQuery('custom-report:employee', async (ctx)
     .text('⬅️ رجوع', 'customReportsHandler')
 
   const selectedFields = ctx.session.customReport.fields.length
-  const activeFilters = Object.keys(ctx.session.customReport.filters).length
+  const basicFilters = Object.keys(ctx.session.customReport.filters).length
+  const advFilters = ctx.session.customReport.advancedFilters || {}
+  const advFiltersCount = Object.values(advFilters).filter(v => v !== undefined).length
+  const totalFilters = basicFilters + advFiltersCount
+
+  let filterDetails = ''
+  if (totalFilters > 0) {
+    filterDetails = '\n🔍 **الفلاتر النشطة:**\n'
+    if (ctx.session.customReport.filters.departmentId) filterDetails += '• القسم ✅\n'
+    if (ctx.session.customReport.filters.governorateId) filterDetails += '• المحافظة ✅\n'
+    if (ctx.session.customReport.filters.positionId) filterDetails += '• الوظيفة ✅\n'
+    if (ctx.session.customReport.filters.employmentStatus) filterDetails += '• الحالة ✅\n'
+    if (advFilters.hireDateFrom || advFilters.hireDateTo) filterDetails += `• تاريخ التعيين ✨\n`
+    if (advFilters.salaryFrom || advFilters.salaryTo) filterDetails += `• الراتب (${advFilters.salaryFrom || '...'} - ${advFilters.salaryTo || '...'}) ✨\n`
+    if (advFilters.ageFrom || advFilters.ageTo) filterDetails += `• العمر (${advFilters.ageFrom || '...'} - ${advFilters.ageTo || '...'}) ✨\n`
+    if (advFilters.experienceFrom || advFilters.experienceTo) filterDetails += `• الخبرة (${advFilters.experienceFrom || '...'} - ${advFilters.experienceTo || '...'}) ✨\n`
+  }
 
   await ctx.editMessageText(
     '👥 **تقرير العاملين المخصص**\n\n'
     + `📋 الحقول المختارة: ${selectedFields}\n`
-    + `🔍 الفلاتر النشطة: ${activeFilters}\n\n`
+    + `🔍 إجمالي الفلاتر: ${totalFilters}${filterDetails}\n\n`
     + '📌 اختر الإجراء:',
     { parse_mode: 'Markdown', reply_markup: keyboard }
   )
@@ -260,6 +276,8 @@ customReportsEmployeeHandler.callbackQuery('custom-report:add-filters', async (c
     .text('💼 حسب الوظيفة', 'custom-report:filter:position')
     .row()
     .text('📊 حسب الحالة', 'custom-report:filter:status')
+    .row()
+    .text('✨ فلاتر متقدمة', 'custom-report:advanced-filters')
     .row()
     .text('🔄 مسح الفلاتر', 'custom-report:clear-filters')
     .row()
@@ -435,7 +453,9 @@ customReportsEmployeeHandler.callbackQuery('custom-report:save-template', async 
 })
 
 customReportsEmployeeHandler.on('message:text', async (ctx, next) => {
-  if (ctx.session.awaitingInput?.type === 'template-name') {
+  const inputType = ctx.session.awaitingInput?.type
+  
+  if (inputType === 'template-name' && ctx.session.awaitingInput) {
     const templateName = ctx.message.text.trim()
     const data = ctx.session.awaitingInput.data
     
@@ -462,6 +482,9 @@ customReportsEmployeeHandler.on('message:text', async (ctx, next) => {
     )
 
     logger.info({ templateId, templateName, userId: ctx.from.id }, 'Template saved')
+    return
+  } else if (inputType?.startsWith('adv-filter-')) {
+    return next()
   } else {
     return next()
   }
@@ -544,8 +567,25 @@ customReportsEmployeeHandler.callbackQuery('custom-report:generate', async (ctx)
     }
 
     const where: any = { isActive: true, ...config.filters }
+    const advFilters = config.advancedFilters
 
-    const employees = await Database.prisma.employee.findMany({
+    if (advFilters?.hireDateFrom || advFilters?.hireDateTo) {
+      where.hireDate = {}
+      if (advFilters.hireDateFrom) where.hireDate.gte = new Date(advFilters.hireDateFrom)
+      if (advFilters.hireDateTo) where.hireDate.lte = new Date(advFilters.hireDateTo)
+    }
+    if (advFilters?.salaryFrom || advFilters?.salaryTo) {
+      where.totalSalary = {}
+      if (advFilters.salaryFrom) where.totalSalary.gte = advFilters.salaryFrom
+      if (advFilters.salaryTo) where.totalSalary.lte = advFilters.salaryTo
+    }
+    if (advFilters?.experienceFrom || advFilters?.experienceTo) {
+      where.yearsOfExperience = {}
+      if (advFilters.experienceFrom) where.yearsOfExperience.gte = advFilters.experienceFrom
+      if (advFilters.experienceTo) where.yearsOfExperience.lte = advFilters.experienceTo
+    }
+
+    let employees = await Database.prisma.employee.findMany({
       where,
       include: {
         department: true,
@@ -557,6 +597,17 @@ customReportsEmployeeHandler.callbackQuery('custom-report:generate', async (ctx)
       orderBy: { fullName: 'asc' },
     })
 
+    if (advFilters?.ageFrom || advFilters?.ageTo) {
+      const today = new Date()
+      employees = employees.filter(emp => {
+        const birthDate = new Date(emp.dateOfBirth)
+        const age = today.getFullYear() - birthDate.getFullYear()
+        if (advFilters.ageFrom && age < advFilters.ageFrom) return false
+        if (advFilters.ageTo && age > advFilters.ageTo) return false
+        return true
+      })
+    }
+
     if (employees.length === 0) {
       await ctx.reply('⚠️ لا توجد بيانات تطابق الفلاتر المحددة')
       return
@@ -564,9 +615,10 @@ customReportsEmployeeHandler.callbackQuery('custom-report:generate', async (ctx)
 
     const filePath = await generateCustomExcel(employees, config.fields)
     const stats = calculateStats(employees, config.filters)
+    const insights = CustomReportsService.generateSmartInsights(employees)
 
     await ctx.replyWithDocument(new InputFile(filePath), {
-      caption: `📊 **تقرير العاملين المخصص**\n\n${stats}`,
+      caption: `📊 **تقرير العاملين المخصص**\n\n${stats}\n${insights}`,
       parse_mode: 'Markdown',
     })
 
@@ -731,6 +783,9 @@ async function generateCustomExcel(employees: any[], fields: string[]): Promise<
 
   // إضافة ورقة الملخص
   await CustomReportsService.addSummarySheet(workbook, employees, fields)
+  
+  // إضافة الرسوم البيانية
+  await CustomReportsService.addChartsToWorkbook(workbook, employees)
 
   const uploadsDir = path.join(process.cwd(), 'uploads')
   await fs.mkdir(uploadsDir, { recursive: true })

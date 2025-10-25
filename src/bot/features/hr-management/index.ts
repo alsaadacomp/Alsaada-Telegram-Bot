@@ -10,6 +10,7 @@ import { hrManagementConfig } from './config.js'
 import { advancesHandler } from './handlers/advances-main.handler.js'
 import { customReportsHandler } from './handlers/custom-reports-main.handler.js'
 import { customReportsEmployeeHandler } from './handlers/custom-reports-employee.handler.js'
+import { customReportsAdvancedHandler } from './handlers/custom-reports-advanced.handler.js'
 import { newAdvanceHandler } from './handlers/advances-new.handler.js'
 import { advancesReportsHandler } from './handlers/advances-reports.handler.js'
 import { viewAdvancesHandler } from './handlers/advances-view.handler.js'
@@ -44,6 +45,7 @@ composer.use(leavesHandler)
 composer.use(payrollHandler)
 composer.use(customReportsHandler)
 composer.use(customReportsEmployeeHandler)
+composer.use(customReportsAdvancedHandler)
 
 // Register NEW filter handlers
 composer.use(employeeFiltersHandler)
