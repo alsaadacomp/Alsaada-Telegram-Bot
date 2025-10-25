@@ -1,6 +1,7 @@
 import type { Context } from '#root/bot/context.js'
 import { Database } from '#root/modules/database/index.js'
 import { logger } from '#root/modules/services/logger/index.js'
+import { CustomReportsService } from '#root/modules/services/reports/custom-reports-service.js'
 import { Composer, InlineKeyboard, InputFile } from 'grammy'
 import ExcelJS from 'exceljs'
 import fs from 'node:fs/promises'
@@ -103,6 +104,9 @@ customReportsEmployeeHandler.callbackQuery('custom-report:employee', async (ctx)
     .text('🔍 إضافة فلاتر', 'custom-report:add-filters')
     .row()
     .text('📊 إنشاء التقرير', 'custom-report:generate')
+    .row()
+    .text('💾 حفظ كقالب', 'custom-report:save-template')
+    .text('📂 القوالب المحفوظة', 'custom-report:load-template')
     .row()
     .text('🔄 إعادة تعيين', 'custom-report:reset')
     .row()
@@ -409,6 +413,126 @@ customReportsEmployeeHandler.callbackQuery('custom-report:reset', async (ctx) =>
   })
 })
 
+customReportsEmployeeHandler.callbackQuery('custom-report:save-template', async (ctx) => {
+  await ctx.answerCallbackQuery()
+  
+  const config = ctx.session.customReport
+  if (!config || config.fields.length === 0) {
+    await ctx.reply('⚠️ يجب اختيار حقل واحد على الأقل قبل الحفظ')
+    return
+  }
+
+  ctx.session.awaitingInput = {
+    type: 'template-name',
+    data: { fields: config.fields, filters: config.filters }
+  }
+
+  await ctx.editMessageText(
+    '💾 **حفظ القالب**\n\n'
+    + 'أرسل اسم القالب الآن:',
+    { parse_mode: 'Markdown' }
+  )
+})
+
+customReportsEmployeeHandler.on('message:text', async (ctx, next) => {
+  if (ctx.session.awaitingInput?.type === 'template-name') {
+    const templateName = ctx.message.text.trim()
+    const data = ctx.session.awaitingInput.data
+    
+    if (!templateName || templateName.length < 2) {
+      await ctx.reply('⚠️ يجب أن يكون اسم القالب حرفين على الأقل')
+      return
+    }
+
+    const templateId = await CustomReportsService.saveTemplate(
+      templateName,
+      data.fields,
+      data.filters,
+      ctx.from.id
+    )
+
+    ctx.session.awaitingInput = undefined
+
+    await ctx.reply(
+      `✅ تم حفظ القالب بنجاح\n\n📋 الاسم: ${templateName}\n🆔 المعرف: ${templateId}`,
+      {
+        reply_markup: new InlineKeyboard()
+          .text('⬅️ رجوع للتقارير', 'custom-report:employee')
+      }
+    )
+
+    logger.info({ templateId, templateName, userId: ctx.from.id }, 'Template saved')
+  } else {
+    return next()
+  }
+})
+
+customReportsEmployeeHandler.callbackQuery('custom-report:load-template', async (ctx) => {
+  await ctx.answerCallbackQuery()
+
+  const templates = CustomReportsService.getTemplatesByUser(ctx.from.id)
+
+  if (templates.length === 0) {
+    await ctx.editMessageText(
+      '📂 **القوالب المحفوظة**\n\n'
+      + '⚠️ لا توجد قوالب محفوظة\n\n'
+      + 'يمكنك حفظ قالب جديد من القائمة الرئيسية',
+      {
+        parse_mode: 'Markdown',
+        reply_markup: new InlineKeyboard().text('⬅️ رجوع', 'custom-report:employee')
+      }
+    )
+    return
+  }
+
+  const keyboard = new InlineKeyboard()
+  templates.forEach((template) => {
+    const fieldsCount = template.fields.length
+    const filtersCount = Object.keys(template.filters).length
+    keyboard.text(
+      `${template.name} (${fieldsCount} حقل، ${filtersCount} فلتر)`,
+      `custom-report:use-template:${template.id}`
+    ).row()
+  })
+  keyboard.text('⬅️ رجوع', 'custom-report:employee')
+
+  await ctx.editMessageText(
+    '📂 **القوالب المحفوظة**\n\n'
+    + `عدد القوالب: ${templates.length}\n\n`
+    + 'اختر قالب لتحميله:',
+    { parse_mode: 'Markdown', reply_markup: keyboard }
+  )
+})
+
+customReportsEmployeeHandler.callbackQuery(/^custom-report:use-template:(.+)$/, async (ctx) => {
+  const templateId = ctx.match[1]
+  const template = CustomReportsService.getTemplate(templateId)
+
+  if (!template) {
+    await ctx.answerCallbackQuery('⚠️ القالب غير موجود')
+    return
+  }
+
+  ctx.session.customReport = {
+    fields: [...template.fields],
+    filters: { ...template.filters }
+  }
+
+  await ctx.answerCallbackQuery('✅ تم تحميل القالب')
+  await ctx.editMessageText(
+    `✅ **تم تحميل القالب: ${template.name}**\n\n`
+    + `📋 الحقول: ${template.fields.length}\n`
+    + `🔍 الفلاتر: ${Object.keys(template.filters).length}\n\n`
+    + 'يمكنك الآن إنشاء التقرير أو تعديل الإعدادات',
+    {
+      parse_mode: 'Markdown',
+      reply_markup: new InlineKeyboard().text('⬅️ رجوع', 'custom-report:employee')
+    }
+  )
+
+  logger.info({ templateId, userId: ctx.from.id }, 'Template loaded')
+})
+
 customReportsEmployeeHandler.callbackQuery('custom-report:generate', async (ctx) => {
   try {
     await ctx.answerCallbackQuery('⏳ جاري إنشاء التقرير...')
@@ -463,9 +587,10 @@ customReportsEmployeeHandler.callbackQuery('custom-report:generate', async (ctx)
 
 async function generateCustomExcel(employees: any[], fields: string[]): Promise<string> {
   const workbook = new ExcelJS.Workbook()
-  const worksheet = workbook.addWorksheet('التقرير المخصص')
-
-  worksheet.views = [{ rightToLeft: true }]
+  
+  // ورقة البيانات الرئيسية
+  const worksheet = workbook.addWorksheet('بيانات العاملين')
+  worksheet.views = [{ rightToLeft: true, state: 'frozen', xSplit: 0, ySplit: 1 }]
 
   const columns = fields.map(field => ({
     header: FIELD_NAMES[field] || field,
@@ -476,14 +601,13 @@ async function generateCustomExcel(employees: any[], fields: string[]): Promise<
   worksheet.columns = columns
 
   const headerRow = worksheet.getRow(1)
-  headerRow.font = { bold: true, size: 12, name: 'Arial' }
+  headerRow.font = { bold: true, size: 12, name: 'Arial', color: { argb: 'FFFFFFFF' } }
   headerRow.alignment = { vertical: 'middle', horizontal: 'center' }
   headerRow.fill = {
     type: 'pattern',
     pattern: 'solid',
     fgColor: { argb: 'FF4472C4' },
   }
-  headerRow.font = { ...headerRow.font, color: { argb: 'FFFFFFFF' } }
   headerRow.height = 25
 
   employees.forEach((emp) => {
@@ -557,7 +681,7 @@ async function generateCustomExcel(employees: any[], fields: string[]): Promise<
 
   worksheet.eachRow((row, rowNumber) => {
     if (rowNumber > 1) {
-      row.eachCell((cell) => {
+      row.eachCell((cell, colNumber) => {
         cell.border = {
           top: { style: 'thin' },
           left: { style: 'thin' },
@@ -565,9 +689,48 @@ async function generateCustomExcel(employees: any[], fields: string[]): Promise<
           right: { style: 'thin' },
         }
         cell.alignment = { vertical: 'middle', horizontal: 'right' }
+        
+        // تنسيق شرطي للرواتب
+        const fieldName = fields[colNumber - 1]
+        if (['basicSalary', 'totalSalary'].includes(fieldName)) {
+          const value = parseFloat(String(cell.value).replace(/[^0-9.]/g, ''))
+          if (value > 10000) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD4EDDA' } }
+          } else if (value < 5000) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8D7DA' } }
+          }
+        }
+        
+        // تنسيق شرطي للحالة
+        if (fieldName === 'employmentStatus') {
+          if (String(cell.value).includes('نشط')) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD4EDDA' } }
+          } else if (String(cell.value).includes('موقوف') || String(cell.value).includes('مفصول')) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8D7DA' } }
+          }
+        }
       })
+      
+      // تلوين الصفوف
+      if (rowNumber % 2 === 0) {
+        row.eachCell((cell) => {
+          const currentFill = cell.fill as any
+          if (!currentFill || !currentFill.fgColor) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } }
+          }
+        })
+      }
     }
   })
+  
+  // Auto-filter
+  worksheet.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: 1, column: fields.length }
+  }
+
+  // إضافة ورقة الملخص
+  await CustomReportsService.addSummarySheet(workbook, employees, fields)
 
   const uploadsDir = path.join(process.cwd(), 'uploads')
   await fs.mkdir(uploadsDir, { recursive: true })
@@ -581,16 +744,30 @@ async function generateCustomExcel(employees: any[], fields: string[]): Promise<
 }
 
 function calculateStats(employees: any[], filters: any): string {
-  let stats = `📈 **الإحصائيات:**\n`
+  let stats = `📈 **الإحصائيات المتقدمة:**\n`
   stats += `• إجمالي العاملين: ${employees.length}\n`
   
   const activeCount = employees.filter(e => e.employmentStatus === 'ACTIVE').length
-  stats += `• نشطين: ${activeCount}\n`
+  const activePercent = ((activeCount / employees.length) * 100).toFixed(1)
+  stats += `• نشطين: ${activeCount} (${activePercent}%)\n`
 
   const maleCount = employees.filter(e => e.gender === 'MALE').length
   const femaleCount = employees.filter(e => e.gender === 'FEMALE').length
-  stats += `• ذكور: ${maleCount} | إناث: ${femaleCount}\n`
+  const malePercent = ((maleCount / employees.length) * 100).toFixed(1)
+  const femalePercent = ((femaleCount / employees.length) * 100).toFixed(1)
+  stats += `• ذكور: ${maleCount} (${malePercent}%) | إناث: ${femaleCount} (${femalePercent}%)\n`
 
+  // إحصائيات الرواتب
+  const salaries = employees.map(e => e.totalSalary || e.basicSalary || 0).filter(s => s > 0)
+  if (salaries.length > 0) {
+    const avgSalary = (salaries.reduce((a, b) => a + b, 0) / salaries.length).toFixed(2)
+    const maxSalary = Math.max(...salaries)
+    const minSalary = Math.min(...salaries)
+    stats += `\n💰 **الرواتب:**\n`
+    stats += `• متوسط: ${avgSalary} | أعلى: ${maxSalary} | أقل: ${minSalary}\n`
+  }
+
+  // رسم بياني نصي للأقسام
   if (!filters.departmentId) {
     const deptCounts = employees.reduce((acc, emp) => {
       const dept = emp.department?.name || 'غير محدد'
@@ -598,12 +775,12 @@ function calculateStats(employees: any[], filters: any): string {
       return acc
     }, {} as Record<string, number>)
     
-    const topDepts = Object.entries(deptCounts).slice(0, 3)
+    const topDepts = Object.entries(deptCounts).sort((a, b) => (b[1] as number) - (a[1] as number)).slice(0, 5)
     if (topDepts.length > 0) {
-      stats += `\n🏢 **أكثر الأقسام:**\n`
-      topDepts.forEach(([dept, count]) => {
-        stats += `• ${dept}: ${count}\n`
-      })
+      stats += `\n🏢 **توزيع الأقسام:**\n`
+      const chartData: Record<string, number> = {}
+      topDepts.forEach(([dept, count]) => { chartData[dept] = count as number })
+      stats += CustomReportsService.generateTextChart(chartData, 15)
     }
   }
 
