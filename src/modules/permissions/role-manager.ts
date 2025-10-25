@@ -91,7 +91,7 @@ export class RoleManager {
           select: {
             id: true,
             username: true,
-            firstName: true,
+            fullName: true,
           },
         },
       },
@@ -258,8 +258,8 @@ export class RoleManager {
         data: {
           telegramId,
           username: userData.username,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
+          fullName: userData.firstName,
+          nickname: userData.lastName,
           role: 'GUEST', // Default role
         },
       })

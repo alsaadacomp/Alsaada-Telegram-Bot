@@ -3,6 +3,7 @@
  * Shared utilities for all tests
  */
 
+import { jest } from '@jest/globals'
 import type { Context } from '#root/bot/context.js'
 import type { User } from '@grammyjs/types'
 

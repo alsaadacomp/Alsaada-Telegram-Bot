@@ -132,7 +132,7 @@ export class CompanyService {
       if (!company || !company.bankAccounts) {
         return []
       }
-      return JSON.parse(company.bankAccounts)
+      return JSON.parse(String(company.bankAccounts))
     }
     catch (error) {
       logger.error({ error }, 'Failed to parse bank accounts')

@@ -5,6 +5,7 @@
  */
 
 import type { Context } from '#root/bot/context.js'
+import { RequestStatus, Role } from '../../../../generated/prisma/index.js'
 import type { Conversation } from '@grammyjs/conversations'
 import type { Context as DefaultContext } from 'grammy'
 import { Database } from '#root/modules/database/index.js'
@@ -30,7 +31,7 @@ export function joinRequestConversation() {
         })
 
         if (existingRequest) {
-          if (existingRequest.status === 'PENDING') {
+          if (existingRequest.status === RequestStatus.PENDING) {
             await ctx.reply(
               '⏳ **لديك طلب انضمام قيد المراجعة**\n\n'
               + 'يرجى انتظار موافقة الإدارة على طلبك.',
@@ -38,10 +39,19 @@ export function joinRequestConversation() {
             )
             return
           }
-          else if (existingRequest.status === 'APPROVED') {
+          else if (existingRequest.status === RequestStatus.APPROVED) {
             await ctx.reply(
               '✅ **تم قبول طلبك مسبقاً**\n\n'
               + 'أنت الآن عضو في النظام!',
+              { parse_mode: 'Markdown' },
+            )
+            return
+          }
+          else if (existingRequest.status === RequestStatus.REJECTED) {
+            await ctx.reply(
+              '❌ **تم رفض طلب انضمامك مسبقاً**\n\n'
+              + `**السبب:** ${existingRequest.rejectionReason || 'لم يتم تحديد سبب'}\n\n`
+              + 'للمزيد من المعلومات، يرجى التواصل مع الإدارة.',
               { parse_mode: 'Markdown' },
             )
             return
@@ -250,7 +260,7 @@ export function joinRequestConversation() {
               fullName,
               nickname,
               phone,
-              status: 'PENDING',
+              status: RequestStatus.PENDING,
             },
           })
 
@@ -312,7 +322,7 @@ async function notifyAdminsOfNewRequest(request: any) {
     const admins = await Database.prisma.user.findMany({
       where: {
         role: {
-          in: ['SUPER_ADMIN', 'ADMIN'],
+          in: [Role.SUPER_ADMIN, Role.ADMIN],
         },
         isActive: true,
         isBanned: false,

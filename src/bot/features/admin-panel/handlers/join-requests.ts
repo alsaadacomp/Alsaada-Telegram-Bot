@@ -5,6 +5,7 @@
  */
 
 import type { Context } from '#root/bot/context.js'
+import { RequestStatus } from '../../../../../generated/prisma/index.js'
 import { Database } from '#root/modules/database/index.js'
 import { RoleManager } from '#root/modules/permissions/index.js'
 import { logger } from '#root/modules/services/logger/index.js'
@@ -20,19 +21,30 @@ joinRequestsHandler.callbackQuery(/^menu:sub:admin-panel:join-requests$/, async 
     await ctx.answerCallbackQuery()
 
     const pendingRequests = await Database.prisma.joinRequest.findMany({
-      where: { status: 'PENDING' },
+      where: { status: RequestStatus.PENDING },
       orderBy: { requestedAt: 'desc' },
       take: 10,
     })
 
+    const rejectedCount = await Database.prisma.joinRequest.count({
+      where: { status: RequestStatus.REJECTED },
+    })
+
     if (pendingRequests.length === 0) {
+      const keyboard = new InlineKeyboard()
+      
+      if (rejectedCount > 0) {
+        keyboard.text(`❌ عرض المرفوضة (${rejectedCount})`, 'join:rejected-list').row()
+      }
+      
+      keyboard.text('⬅️ رجوع', 'menu:feature:admin-panel')
+
       await ctx.editMessageText(
         '📋 **طلبات الانضمام**\n\n'
         + '✅ لا توجد طلبات قيد المراجعة',
         {
           parse_mode: 'Markdown',
-          reply_markup: new InlineKeyboard()
-            .text('⬅️ رجوع', 'menu:feature:admin-panel'),
+          reply_markup: keyboard,
         },
       )
       return
@@ -47,6 +59,10 @@ joinRequestsHandler.callbackQuery(/^menu:sub:admin-panel:join-requests$/, async 
       )
       keyboard.row()
     })
+
+    if (rejectedCount > 0) {
+      keyboard.text(`❌ عرض المرفوضة (${rejectedCount})`, 'join:rejected-list').row()
+    }
 
     keyboard.text('⬅️ رجوع', 'menu:feature:admin-panel')
 
@@ -82,18 +98,16 @@ joinRequestsHandler.callbackQuery(/^join:details:(\d+)$/, async (ctx) => {
       return
     }
 
-    const statusEmoji = {
-      PENDING: '⏳',
-      APPROVED: '✅',
-      REJECTED: '❌',
-      CANCELLED: '🚫',
+    const statusEmoji: Record<RequestStatus, string> = {
+      [RequestStatus.PENDING]: '⏳',
+      [RequestStatus.APPROVED]: '✅',
+      [RequestStatus.REJECTED]: '❌',
     }
 
-    const statusText = {
-      PENDING: 'قيد المراجعة',
-      APPROVED: 'تم القبول',
-      REJECTED: 'تم الرفض',
-      CANCELLED: 'تم الإلغاء',
+    const statusText: Record<RequestStatus, string> = {
+      [RequestStatus.PENDING]: 'قيد المراجعة',
+      [RequestStatus.APPROVED]: 'تم القبول',
+      [RequestStatus.REJECTED]: 'تم الرفض',
     }
 
     let message
@@ -103,7 +117,7 @@ joinRequestsHandler.callbackQuery(/^join:details:(\d+)$/, async (ctx) => {
         + `📱 **رقم الموبايل:** ${request.phone}\n`
         + `🆔 **Telegram ID:** \`${request.telegramId}\`\n`
         + `📅 **تاريخ الطلب:** ${request.requestedAt.toLocaleString('ar-EG')}\n`
-        + `${statusEmoji[request.status as keyof typeof statusEmoji]} **الحالة:** ${statusText[request.status as keyof typeof statusText]}\n`
+        + `${statusEmoji[request.status]} **الحالة:** ${statusText[request.status]}\n`
 
     if (request.respondedAt) {
       message += `📅 **تاريخ الرد:** ${request.respondedAt.toLocaleString('ar-EG')}\n`
@@ -115,7 +129,7 @@ joinRequestsHandler.callbackQuery(/^join:details:(\d+)$/, async (ctx) => {
 
     const keyboard = new InlineKeyboard()
 
-    if (request.status === 'PENDING') {
+    if (request.status === RequestStatus.PENDING) {
       keyboard
         .text('✅ قبول', `join:approve:${request.id}`)
         .text('❌ رفض', `join:reject:${request.id}`)
@@ -159,57 +173,33 @@ joinRequestsHandler.callbackQuery(/^join:approve:(\d+)$/, async (ctx) => {
       return
     }
 
-    if (request.status !== 'PENDING') {
+    if (request.status !== RequestStatus.PENDING) {
       await ctx.answerCallbackQuery('⚠️ تم معالجة هذا الطلب مسبقاً')
       return
     }
 
-    // تحديث حالة الطلب
-    await Database.prisma.joinRequest.update({
-      where: { id: requestId },
-      data: {
-        status: 'APPROVED',
-        respondedAt: new Date(),
-        approvedBy: adminId,
-      },
-    })
-
-    // إنشاء/تحديث المستخدم في النظام
+    // إنشاء المستخدم في النظام من بيانات طلب الانضمام
     try {
-      const user = await RoleManager.getOrCreateUser(request.telegramId, {
-        firstName: request.fullName,
-        lastName: request.nickname || undefined,
-      })
-
-      // تغيير الدور إلى USER مباشرة في قاعدة البيانات
-      await Database.prisma.user.update({
-        where: { id: user.id },
-        data: { role: 'USER' },
-      })
-
-      // تسجيل التغيير في السجل
-      await Database.prisma.roleChange.create({
+      const user = await Database.prisma.user.create({
         data: {
-          userId: user.id,
-          oldRole: 'GUEST',
-          newRole: 'USER',
-          changedBy: adminId,
-          reason: 'تمت الموافقة على طلب الانضمام',
-        },
-      })
-
-      // تحديث رقم الهاتف
-      await Database.prisma.user.update({
-        where: { id: user.id },
-        data: {
+          telegramId: request.telegramId,
+          username: request.username,
+          fullName: request.fullName,
+          nickname: request.nickname,
           phone: request.phone,
+          role: 'USER',
+          isActive: true,
         },
       })
 
-      // ربط الطلب بالمستخدم
-      await Database.prisma.joinRequest.update({
+      logger.info({
+        userId: user.id,
+        requestId,
+      }, 'User created from join request')
+
+      // تحديث حالة الطلب وحذفه
+      await Database.prisma.joinRequest.delete({
         where: { id: requestId },
-        data: { userId: user.id },
       })
 
       // إرسال إشعار للمستخدم
@@ -230,9 +220,9 @@ joinRequestsHandler.callbackQuery(/^join:approve:(\d+)$/, async (ctx) => {
       await ctx.editMessageText(
         `✅ **تم قبول الطلب بنجاح!**\n\n`
         + `👤 **المستخدم:** ${request.fullName}\n`
-        + `🆔 **ID:** ${user.id}\n`
+        + `🆔 **User ID:** ${user.id}\n`
         + `📱 **الهاتف:** ${request.phone}\n\n`
-        + `تم تفعيل حساب المستخدم وإرسال إشعار له.`,
+        + `تم إنشاء حساب المستخدم وحذف طلب الانضمام وإرسال إشعار له.`,
         {
           parse_mode: 'Markdown',
           reply_markup: new InlineKeyboard()
@@ -244,7 +234,7 @@ joinRequestsHandler.callbackQuery(/^join:approve:(\d+)$/, async (ctx) => {
         requestId,
         userId: user.id,
         approvedBy: adminId,
-      }, 'Join request approved')
+      }, 'Join request approved and user created')
     }
     catch (error) {
       logger.error({ error }, 'Error creating user after approval')
@@ -289,11 +279,11 @@ joinRequestsHandler.callbackQuery(/^join:reject:(\d+)$/, async (ctx) => {
     // طلب سبب الرفض (اختياري - يمكن تطويره لاحقاً)
     const rejectionReason = 'تم رفض الطلب من قبل الإدارة'
 
-    // تحديث حالة الطلب
+    // تحديث حالة الطلب إلى REJECTED (للحفاظ على السجل ومنع إعادة التقديم)
     await Database.prisma.joinRequest.update({
       where: { id: requestId },
       data: {
-        status: 'REJECTED',
+        status: RequestStatus.REJECTED,
         respondedAt: new Date(),
         rejectedBy: adminId,
         rejectionReason,
@@ -319,7 +309,7 @@ joinRequestsHandler.callbackQuery(/^join:reject:(\d+)$/, async (ctx) => {
       `❌ **تم رفض الطلب**\n\n`
       + `👤 **المستخدم:** ${request.fullName}\n`
       + `📱 **الهاتف:** ${request.phone}\n\n`
-      + `تم إرسال إشعار للمستخدم.`,
+      + `تم حفظ حالة الرفض لمنع إعادة التقديم وإرسال إشعار للمستخدم.`,
       {
         parse_mode: 'Markdown',
         reply_markup: new InlineKeyboard()
@@ -330,10 +320,67 @@ joinRequestsHandler.callbackQuery(/^join:reject:(\d+)$/, async (ctx) => {
     logger.info({
       requestId,
       rejectedBy: adminId,
-    }, 'Join request rejected')
+    }, 'Join request rejected and status saved')
   }
   catch (error) {
     logger.error({ error }, 'Error rejecting join request')
+    await ctx.answerCallbackQuery('حدث خطأ')
+  }
+})
+
+/**
+ * عرض قائمة الطلبات المرفوضة
+ */
+joinRequestsHandler.callbackQuery('join:rejected-list', async (ctx) => {
+  try {
+    await ctx.answerCallbackQuery()
+
+    const rejectedRequests = await Database.prisma.joinRequest.findMany({
+      where: { status: RequestStatus.REJECTED },
+      orderBy: { respondedAt: 'desc' },
+      take: 10,
+      include: {
+        User_JoinRequest_rejectedByToUser: {
+          select: { fullName: true, nickname: true },
+        },
+      },
+    })
+
+    if (rejectedRequests.length === 0) {
+      await ctx.editMessageText(
+        '📋 **الطلبات المرفوضة**\n\n'
+        + 'لا توجد طلبات مرفوضة',
+        {
+          parse_mode: 'Markdown',
+          reply_markup: new InlineKeyboard()
+            .text('⬅️ رجوع', 'menu:sub:admin-panel:join-requests'),
+        },
+      )
+      return
+    }
+
+    let message = `❌ **الطلبات المرفوضة (${rejectedRequests.length})**\n\n`
+
+    rejectedRequests.forEach((request, index) => {
+      const rejectedByName = request.User_JoinRequest_rejectedByToUser
+        ? `${request.User_JoinRequest_rejectedByToUser.fullName || request.User_JoinRequest_rejectedByToUser.nickname || ''}`.trim() || 'غير معروف'
+        : 'غير معروف'
+
+      message += `${index + 1}. **${request.fullName}**\n`
+      message += `   📱 ${request.phone}\n`
+      message += `   🚫 رفض بواسطة: ${rejectedByName}\n`
+      message += `   📅 ${request.respondedAt?.toLocaleDateString('ar-EG') || 'N/A'}\n`
+      message += `   📝 ${request.rejectionReason || 'لا يوجد سبب'}\n\n`
+    })
+
+    await ctx.editMessageText(message, {
+      parse_mode: 'Markdown',
+      reply_markup: new InlineKeyboard()
+        .text('⬅️ رجوع', 'menu:sub:admin-panel:join-requests'),
+    })
+  }
+  catch (error) {
+    logger.error({ error }, 'Error showing rejected requests')
     await ctx.answerCallbackQuery('حدث خطأ')
   }
 })

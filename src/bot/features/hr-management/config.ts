@@ -11,7 +11,7 @@ export const hrManagementConfig: FeatureConfig = {
   description: 'إدارة شاملة للموارد البشرية',
   enabled: true,
   order: 2,
-  permissions: ['SUPER_ADMIN', 'ADMIN', 'USER'],
+  permissions: ['SUPER_ADMIN', 'ADMIN'], // ❌ Removed USER - HR is admin-only
 
   subFeatures: [
     {
@@ -22,7 +22,7 @@ export const hrManagementConfig: FeatureConfig = {
       handler: 'employeesListHandler', // اسم مرجعي فقط
       enabled: true,
       order: 1,
-      permissions: ['SUPER_ADMIN', 'ADMIN', 'USER'],
+      permissions: ['SUPER_ADMIN', 'ADMIN'], // ❌ Removed USER - Admins only
     },
     {
       id: 'advances',

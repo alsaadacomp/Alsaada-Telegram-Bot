@@ -1,4 +1,5 @@
 import type { Context } from '../../../context.js'
+import { Role, Gender, MaritalStatus, EmploymentType, ContractType, EmploymentStatus, PaymentMethod, TransferType } from '../../../../../generated/prisma/index.js'
 import { Composer, InlineKeyboard } from 'grammy'
 import { Database } from '../../../../modules/database/index.js'
 import { createSimpleDatePicker, parseDateFromCallback } from '../../../../modules/ui/calendar.js'
@@ -21,7 +22,7 @@ employeeEditHandler.callbackQuery(/^hr:employee:edit:(\d+)$/, async (ctx) => {
   const userRole = ctx.dbUser?.role ?? 'GUEST'
   
   // التحقق من الصلاحيات
-  if (userRole !== 'ADMIN' && userRole !== 'SUPER_ADMIN') {
+  if (userRole !== Role.ADMIN && userRole !== Role.SUPER_ADMIN) {
     await ctx.editMessageText(
       '❌ غير مصرح لك بتعديل معلومات العاملين\n\nتحتاج صلاحيات ADMIN أو SUPER_ADMIN.',
       { 
@@ -309,7 +310,7 @@ employeeEditHandler.callbackQuery(/^hr:employee:edit:salary:(\d+)$/, async (ctx)
   const userRole = ctx.dbUser?.role ?? 'GUEST'
   
   // التحقق من الصلاحيات
-  if (userRole !== 'SUPER_ADMIN') {
+  if (userRole !== Role.SUPER_ADMIN) {
     await ctx.editMessageText(
       '❌ غير مصرح لك بتعديل الرواتب والبدلات\n\nتحتاج صلاحيات SUPER_ADMIN.',
       { 
@@ -354,7 +355,7 @@ employeeEditHandler.callbackQuery(/^hr:employee:edit:field:(\d+):(\w+)$/, async 
   // التحقق من الصلاحيات للحقول الحساسة
   const sensitiveFields = ['basicSalary', 'allowances', 'totalSalary', 'currency', 'paymentMethod', 'bankName', 'bankAccountNumber', 'iban', 'transferNumber1', 'transferType1', 'transferNumber2', 'transferType2', 'socialInsuranceNumber', 'taxNumber', 'insuranceStartDate']
   
-  if (sensitiveFields.includes(fieldName) && userRole !== 'SUPER_ADMIN') {
+  if (sensitiveFields.includes(fieldName) && userRole !== Role.SUPER_ADMIN) {
     await ctx.editMessageText(
       '❌ غير مصرح لك بتعديل هذا الحقل\n\nتحتاج صلاحيات SUPER_ADMIN.',
       { 
@@ -418,130 +419,134 @@ employeeEditHandler.callbackQuery(/^hr:employee:edit:field:(\d+):(\w+)$/, async 
         break
       case 'gender':
         fieldLabel = 'الجنس'
-        currentValue = employee.gender === 'MALE' ? 'ذكر' : 'أنثى'
+        currentValue = employee.gender === Gender.MALE ? 'ذكر' : 'أنثى'
         hasChoices = true
         choices = [
-          { label: 'ذكر', value: 'MALE' },
-          { label: 'أنثى', value: 'FEMALE' }
+          { label: 'ذكر', value: Gender.MALE },
+          { label: 'أنثى', value: Gender.FEMALE }
         ]
         break
       case 'maritalStatus':
         fieldLabel = 'الحالة الاجتماعية'
-        const maritalStatusMap: { [key: string]: string } = {
-          'SINGLE': 'أعزب/عزباء',
-          'MARRIED': 'متزوج/متزوجة',
-          'DIVORCED': 'مطلق/مطلقة',
-          'WIDOWED': 'أرمل/أرملة'
+        const maritalStatusMap: { [key in MaritalStatus]: string } = {
+          [MaritalStatus.SINGLE]: 'أعزب/عزباء',
+          [MaritalStatus.MARRIED]: 'متزوج/متزوجة',
+          [MaritalStatus.DIVORCED]: 'مطلق/مطلقة',
+          [MaritalStatus.WIDOWED]: 'أرمل/أرملة'
         }
-        currentValue = maritalStatusMap[employee.maritalStatus] || employee.maritalStatus
+        currentValue = maritalStatusMap[employee.maritalStatus]
         hasChoices = true
         choices = [
-          { label: 'أعزب/عزباء', value: 'SINGLE' },
-          { label: 'متزوج/متزوجة', value: 'MARRIED' },
-          { label: 'مطلق/مطلقة', value: 'DIVORCED' },
-          { label: 'أرمل/أرملة', value: 'WIDOWED' }
+          { label: 'أعزب/عزباء', value: MaritalStatus.SINGLE },
+          { label: 'متزوج/متزوجة', value: MaritalStatus.MARRIED },
+          { label: 'مطلق/مطلقة', value: MaritalStatus.DIVORCED },
+          { label: 'أرمل/أرملة', value: MaritalStatus.WIDOWED }
         ]
         break
       case 'employmentType':
         fieldLabel = 'نوع التوظيف'
-        const employmentTypeMap: { [key: string]: string } = {
-          'FULL_TIME': 'دوام كامل',
-          'PART_TIME': 'دوام جزئي',
-          'CONTRACT': 'عقد',
-          'TEMPORARY': 'مؤقت',
-          'INTERN': 'متدرب',
-          'FREELANCE': 'مستقل'
+        const employmentTypeMap: { [key in EmploymentType]: string } = {
+          [EmploymentType.FULL_TIME]: 'دوام كامل',
+          [EmploymentType.PART_TIME]: 'دوام جزئي',
+          [EmploymentType.CONTRACT]: 'عقد',
+          [EmploymentType.TEMPORARY]: 'مؤقت',
+          [EmploymentType.INTERN]: 'متدرب',
+          [EmploymentType.FREELANCE]: 'مستقل'
         }
-        currentValue = employmentTypeMap[employee.employmentType] || employee.employmentType
+        currentValue = employmentTypeMap[employee.employmentType]
         hasChoices = true
         choices = [
-          { label: 'دوام كامل', value: 'FULL_TIME' },
-          { label: 'دوام جزئي', value: 'PART_TIME' },
-          { label: 'عقد', value: 'CONTRACT' },
-          { label: 'مؤقت', value: 'TEMPORARY' },
-          { label: 'متدرب', value: 'INTERN' },
-          { label: 'مستقل', value: 'FREELANCE' }
+          { label: 'دوام كامل', value: EmploymentType.FULL_TIME },
+          { label: 'دوام جزئي', value: EmploymentType.PART_TIME },
+          { label: 'عقد', value: EmploymentType.CONTRACT },
+          { label: 'مؤقت', value: EmploymentType.TEMPORARY },
+          { label: 'متدرب', value: EmploymentType.INTERN },
+          { label: 'مستقل', value: EmploymentType.FREELANCE }
         ]
         break
       case 'contractType':
         fieldLabel = 'نوع العقد'
-        const contractTypeMap: { [key: string]: string } = {
-          'PERMANENT': 'دائم',
-          'FIXED_TERM': 'محدد المدة',
-          'PROBATION': 'فترة تجريبية',
-          'SEASONAL': 'موسمي'
+        const contractTypeMap: { [key in ContractType]: string } = {
+          [ContractType.PERMANENT]: 'دائم',
+          [ContractType.FIXED_TERM]: 'محدد المدة',
+          [ContractType.PROBATION]: 'فترة تجريبية',
+          [ContractType.SEASONAL]: 'موسمي'
         }
-        currentValue = contractTypeMap[employee.contractType] || employee.contractType
+        currentValue = contractTypeMap[employee.contractType]
         hasChoices = true
         choices = [
-          { label: 'دائم', value: 'PERMANENT' },
-          { label: 'محدد المدة', value: 'FIXED_TERM' },
-          { label: 'فترة تجريبية', value: 'PROBATION' },
-          { label: 'موسمي', value: 'SEASONAL' }
+          { label: 'دائم', value: ContractType.PERMANENT },
+          { label: 'محدد المدة', value: ContractType.FIXED_TERM },
+          { label: 'فترة تجريبية', value: ContractType.PROBATION },
+          { label: 'موسمي', value: ContractType.SEASONAL }
         ]
         break
       case 'employmentStatus':
         fieldLabel = 'حالة التوظيف'
-        const employmentStatusMap: { [key: string]: string } = {
-          'ACTIVE': 'نشط',
-          'ON_LEAVE': 'في إجازة',
-          'SUSPENDED': 'معلق',
-          'RESIGNED': 'استقال',
-          'TERMINATED': 'فصل',
-          'RETIRED': 'تقاعد'
+        const employmentStatusMap: { [key in EmploymentStatus]: string } = {
+          [EmploymentStatus.ACTIVE]: 'نشط',
+          [EmploymentStatus.ON_LEAVE]: 'في إجازة',
+          [EmploymentStatus.SUSPENDED]: 'معلق',
+          [EmploymentStatus.RESIGNED]: 'استقال',
+          [EmploymentStatus.TERMINATED]: 'فصل',
+          [EmploymentStatus.RETIRED]: 'تقاعد',
+          [EmploymentStatus.ON_MISSION]: 'في مهمة',
+          [EmploymentStatus.SETTLED]: 'مستقر'
         }
-        currentValue = employmentStatusMap[employee.employmentStatus] || employee.employmentStatus
+        currentValue = employmentStatusMap[employee.employmentStatus]
         hasChoices = true
         choices = [
-          { label: 'نشط', value: 'ACTIVE' },
-          { label: 'في إجازة', value: 'ON_LEAVE' },
-          { label: 'معلق', value: 'SUSPENDED' },
-          { label: 'استقال', value: 'RESIGNED' },
-          { label: 'فصل', value: 'TERMINATED' },
-          { label: 'تقاعد', value: 'RETIRED' }
+          { label: 'نشط', value: EmploymentStatus.ACTIVE },
+          { label: 'في إجازة', value: EmploymentStatus.ON_LEAVE },
+          { label: 'معلق', value: EmploymentStatus.SUSPENDED },
+          { label: 'استقال', value: EmploymentStatus.RESIGNED },
+          { label: 'فصل', value: EmploymentStatus.TERMINATED },
+          { label: 'تقاعد', value: EmploymentStatus.RETIRED },
+          { label: 'في مهمة', value: EmploymentStatus.ON_MISSION },
+          { label: 'مستقر', value: EmploymentStatus.SETTLED }
         ]
         break
       case 'paymentMethod':
         fieldLabel = 'طريقة الدفع'
-        const paymentMethodMap: { [key: string]: string } = {
-          'CASH': 'نقدي',
-          'BANK_TRANSFER': 'تحويل بنكي',
-          'CHEQUE': 'شيك',
-          'MOBILE_WALLET': 'محفظة إلكترونية'
+        const paymentMethodMap: { [key in PaymentMethod]: string } = {
+          [PaymentMethod.CASH]: 'نقدي',
+          [PaymentMethod.BANK_TRANSFER]: 'تحويل بنكي',
+          [PaymentMethod.CHEQUE]: 'شيك',
+          [PaymentMethod.MOBILE_WALLET]: 'محفظة إلكترونية'
         }
-        currentValue = paymentMethodMap[employee.paymentMethod] || employee.paymentMethod
+        currentValue = paymentMethodMap[employee.paymentMethod]
         hasChoices = true
         choices = [
-          { label: 'نقدي', value: 'CASH' },
-          { label: 'تحويل بنكي', value: 'BANK_TRANSFER' },
-          { label: 'شيك', value: 'CHEQUE' },
-          { label: 'محفظة إلكترونية', value: 'MOBILE_WALLET' }
+          { label: 'نقدي', value: PaymentMethod.CASH },
+          { label: 'تحويل بنكي', value: PaymentMethod.BANK_TRANSFER },
+          { label: 'شيك', value: PaymentMethod.CHEQUE },
+          { label: 'محفظة إلكترونية', value: PaymentMethod.MOBILE_WALLET }
         ]
         break
       case 'transferType1':
         fieldLabel = 'نوع التحويل الأول'
-        const transferTypeMap: { [key: string]: string } = {
-          'INSTAPAY': 'إنستاباي',
-          'CASH': 'كاش'
+        const transferTypeMap: { [key in TransferType]: string } = {
+          [TransferType.INSTAPAY]: 'إنستاباي',
+          [TransferType.CASH]: 'كاش'
         }
-        currentValue = transferTypeMap[employee.transferType1 || ''] || employee.transferType1 || ''
+        currentValue = employee.transferType1 ? transferTypeMap[employee.transferType1] : ''
         hasChoices = true
         choices = [
-          { label: 'إنستاباي', value: 'INSTAPAY' },
-          { label: 'كاش', value: 'CASH' }
+          { label: 'إنستاباي', value: TransferType.INSTAPAY },
+          { label: 'كاش', value: TransferType.CASH }
         ]
         break
       case 'transferType2':
         fieldLabel = 'نوع التحويل الثاني'
-        const transferTypeMap2: { [key: string]: string } = {
-          'INSTAPAY': 'إنستاباي',
-          'CASH': 'كاش'
+        const transferTypeMap2: { [key in TransferType]: string } = {
+          [TransferType.INSTAPAY]: 'إنستاباي',
+          [TransferType.CASH]: 'كاش'
         }
-        currentValue = transferTypeMap2[employee.transferType2 || ''] || employee.transferType2 || ''
+        currentValue = employee.transferType2 ? transferTypeMap2[employee.transferType2] : ''
         hasChoices = true
         choices = [
-          { label: 'إنستاباي', value: 'INSTAPAY' },
-          { label: 'كاش', value: 'CASH' }
+          { label: 'إنستاباي', value: TransferType.INSTAPAY },
+          { label: 'كاش', value: TransferType.CASH }
         ]
         break
       case 'basicSalary':
@@ -802,7 +807,8 @@ employeeEditHandler.on('message:text', async (ctx) => {
       }
       
       // إضافة isActive = false للحالات غير النشطة
-      if (['RESIGNED', 'TERMINATED', 'RETIRED'].includes(newStatus)) {
+      const inactiveStatuses: EmploymentStatus[] = [EmploymentStatus.RESIGNED, EmploymentStatus.TERMINATED, EmploymentStatus.RETIRED]
+      if (inactiveStatuses.includes(newStatus as EmploymentStatus)) {
         updateData.isActive = false
       }
 
@@ -814,10 +820,10 @@ employeeEditHandler.on('message:text', async (ctx) => {
       // مسح حالة التعديل
       delete ctx.session.statusChangeEdit
 
-      const statusLabels: { [key: string]: string } = {
-        'RESIGNED': 'استقال',
-        'TERMINATED': 'فصل',
-        'RETIRED': 'تقاعد'
+      const statusLabels: { [key in EmploymentStatus]?: string } = {
+        [EmploymentStatus.RESIGNED]: 'استقال',
+        [EmploymentStatus.TERMINATED]: 'فصل',
+        [EmploymentStatus.RETIRED]: 'تقاعد'
       }
 
       const keyboard = new InlineKeyboard()
@@ -826,7 +832,7 @@ employeeEditHandler.on('message:text', async (ctx) => {
 
       await ctx.reply(
         `✅ تم تغيير الحالة الوظيفية بنجاح!\n\n` +
-        `📊 الحالة الجديدة: ${statusLabels[newStatus]}\n` +
+        `📊 الحالة الجديدة: ${statusLabels[newStatus as EmploymentStatus]}\n` +
         `📅 التاريخ: ${parsedDate.toLocaleDateString('ar-EG')}`,
         { reply_markup: keyboard }
       )
@@ -915,7 +921,7 @@ employeeEditHandler.on('message:text', async (ctx) => {
     const userRole = ctx.dbUser?.role ?? 'GUEST'
     const sensitiveFields = ['basicSalary', 'allowances', 'totalSalary', 'currency', 'paymentMethod', 'bankName', 'bankAccountNumber', 'iban', 'transferNumber1', 'transferType1', 'transferNumber2', 'transferType2', 'socialInsuranceNumber', 'taxNumber', 'insuranceStartDate']
     
-    if (sensitiveFields.includes(fieldName) && userRole !== 'SUPER_ADMIN') {
+    if (sensitiveFields.includes(fieldName) && userRole !== Role.SUPER_ADMIN) {
       await ctx.reply('❌ غير مصرح لك بتعديل هذا الحقل.')
       return
     }
@@ -1024,7 +1030,7 @@ employeeEditHandler.callbackQuery(/^hr:employee:edit:choice:(\d+):(\w+):(.+)$/, 
     const userRole = ctx.dbUser?.role ?? 'GUEST'
     const sensitiveFields = ['basicSalary', 'allowances', 'totalSalary', 'currency', 'paymentMethod', 'bankName', 'bankAccountNumber', 'iban', 'transferNumber1', 'transferType1', 'transferNumber2', 'transferType2', 'socialInsuranceNumber', 'taxNumber', 'insuranceStartDate']
     
-    if (sensitiveFields.includes(fieldName) && userRole !== 'SUPER_ADMIN') {
+    if (sensitiveFields.includes(fieldName) && userRole !== Role.SUPER_ADMIN) {
       await ctx.editMessageText(
         '❌ غير مصرح لك بتعديل هذا الحقل\n\nتحتاج صلاحيات SUPER_ADMIN.',
         { 
@@ -1060,10 +1066,10 @@ employeeEditHandler.callbackQuery(/^hr:employee:edit:choice:(\d+):(\w+):(.+)$/, 
           dateType: 'today'
         }
         
-        const statusLabels: { [key: string]: string } = {
-          'RESIGNED': 'استقال',
-          'TERMINATED': 'فصل',
-          'RETIRED': 'تقاعد'
+        const statusLabels: { [key in EmploymentStatus]?: string } = {
+          [EmploymentStatus.RESIGNED]: 'استقال',
+          [EmploymentStatus.TERMINATED]: 'فصل',
+          [EmploymentStatus.RETIRED]: 'تقاعد'
         }
         
         const keyboard = new InlineKeyboard()
@@ -1072,8 +1078,8 @@ employeeEditHandler.callbackQuery(/^hr:employee:edit:choice:(\d+):(\w+):(.+)$/, 
           .text('⬅️ رجوع', `hr:employee:edit:${employeeId}`)
         
         await ctx.editMessageText(
-          `📊 تغيير الحالة الوظيفية إلى: ${statusLabels[selectedValue]}\n\n` +
-          `💡 اختر تاريخ ${statusLabels[selectedValue]}:`,
+          `📊 تغيير الحالة الوظيفية إلى: ${statusLabels[selectedValue as EmploymentStatus]}\n\n` +
+          `💡 اختر تاريخ ${statusLabels[selectedValue as EmploymentStatus]}:`,
           { reply_markup: keyboard }
         )
         return
@@ -1249,7 +1255,8 @@ employeeEditHandler.callbackQuery(/^hr:employee:status:date:(\d+):(.+)$/, async 
       }
       
       // إضافة isActive = false للحالات غير النشطة
-      if (['RESIGNED', 'TERMINATED', 'RETIRED'].includes(newStatus)) {
+      const inactiveStatuses: EmploymentStatus[] = [EmploymentStatus.RESIGNED, EmploymentStatus.TERMINATED, EmploymentStatus.RETIRED]
+      if (inactiveStatuses.includes(newStatus as EmploymentStatus)) {
         updateData.isActive = false
       }
 
@@ -1261,10 +1268,10 @@ employeeEditHandler.callbackQuery(/^hr:employee:status:date:(\d+):(.+)$/, async 
       // مسح حالة التعديل
       delete ctx.session.statusChangeEdit
 
-      const statusLabels: { [key: string]: string } = {
-        'RESIGNED': 'استقال',
-        'TERMINATED': 'فصل',
-        'RETIRED': 'تقاعد'
+      const statusLabels: { [key in EmploymentStatus]?: string } = {
+        [EmploymentStatus.RESIGNED]: 'استقال',
+        [EmploymentStatus.TERMINATED]: 'فصل',
+        [EmploymentStatus.RETIRED]: 'تقاعد'
       }
 
       const keyboard = new InlineKeyboard()
@@ -1273,7 +1280,7 @@ employeeEditHandler.callbackQuery(/^hr:employee:status:date:(\d+):(.+)$/, async 
 
       await ctx.editMessageText(
         `✅ تم تغيير الحالة الوظيفية بنجاح!\n\n` +
-        `📊 الحالة الجديدة: ${statusLabels[newStatus]}\n` +
+        `📊 الحالة الجديدة: ${statusLabels[newStatus as EmploymentStatus]}\n` +
         `📅 التاريخ: ${today.toLocaleDateString('ar-EG')}`,
         { reply_markup: keyboard }
       )

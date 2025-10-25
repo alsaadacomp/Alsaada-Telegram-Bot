@@ -32,7 +32,7 @@ export async function initSuperAdmin(config: Config): Promise<void> {
           telegramId,
           role: 'SUPER_ADMIN',
           isActive: true,
-          firstName: 'Super Admin',
+          fullName: 'Super Admin',
         },
       })
 

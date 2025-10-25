@@ -99,8 +99,6 @@ profileHandler.callbackQuery('profile:view', async (ctx) => {
         id: true,
         telegramId: true,
         username: true,
-        firstName: true,
-        lastName: true,
         fullName: true,
         nickname: true,
         phone: true,
@@ -134,9 +132,6 @@ profileHandler.callbackQuery('profile:view', async (ctx) => {
 
     if (user.fullName) {
       message += `📝 **الاسم الكامل:** ${user.fullName}\n`
-    }
-    else if (user.firstName || user.lastName) {
-      message += `📝 **الاسم:** ${user.firstName || ''} ${user.lastName || ''}\n`
     }
 
     if (user.nickname) {

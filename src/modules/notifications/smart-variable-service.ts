@@ -304,8 +304,6 @@ export class SmartVariableService {
           phone: true,
           email: true,
           role: true,
-          firstName: true,
-          lastName: true,
         },
       })
 
@@ -314,7 +312,7 @@ export class SmartVariableService {
       }
 
       return {
-        fullName: user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || '[اسم المستخدم]',
+        fullName: user.fullName || user.nickname || '[اسم المستخدم]',
         nickname: user.nickname || '[اسم الشهرة]',
         userPhone: user.phone || '[رقم الموبيل]',
         userEmail: user.email || '[البريد الإلكتروني]',

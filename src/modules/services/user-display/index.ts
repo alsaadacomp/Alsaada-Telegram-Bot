@@ -10,21 +10,13 @@ import type { User } from '../../../../generated/prisma/index.js'
  * الحصول على اسم العرض للمستخدم
  */
 export function getUserDisplayName(user: Partial<User>): string {
-  // Priority: fullName > nickname > firstName + lastName > firstName > username > ID
+  // Priority: fullName > nickname > username > ID
   if (user.fullName) {
     return user.fullName
   }
 
   if (user.nickname) {
     return user.nickname
-  }
-
-  if (user.firstName && user.lastName) {
-    return `${user.firstName} ${user.lastName}`
-  }
-
-  if (user.firstName) {
-    return user.firstName
   }
 
   if (user.username) {

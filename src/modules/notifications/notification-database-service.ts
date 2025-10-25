@@ -187,7 +187,7 @@ export class NotificationDatabaseService {
       await Database.prisma.notification.update({
         where: { id },
         data: {
-          status: status.toUpperCase(),
+          status: status.toUpperCase() as any,
           successCount,
           failureCount,
         },

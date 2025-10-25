@@ -190,7 +190,7 @@ export class PermissionService {
       isActive: user.isActive,
       isBanned: user.isBanned,
       customPermissions: user.customPermissions
-        ? JSON.parse(user.customPermissions)
+        ? JSON.parse(String(user.customPermissions))
         : undefined,
     }
   }
@@ -222,7 +222,7 @@ export class PermissionService {
       isActive: user.isActive,
       isBanned: user.isBanned,
       customPermissions: user.customPermissions
-        ? JSON.parse(user.customPermissions)
+        ? JSON.parse(String(user.customPermissions))
         : undefined,
     }
   }
@@ -241,7 +241,7 @@ export class PermissionService {
     }
 
     const currentPermissions: string[] = user.customPermissions
-      ? JSON.parse(user.customPermissions)
+      ? JSON.parse(String(user.customPermissions))
       : []
 
     if (!currentPermissions.includes(permission)) {
@@ -269,7 +269,7 @@ export class PermissionService {
     }
 
     const currentPermissions: string[] = user.customPermissions
-      ? JSON.parse(user.customPermissions)
+      ? JSON.parse(String(user.customPermissions))
       : []
 
     const filteredPermissions = currentPermissions.filter(p => p !== permission)
@@ -295,6 +295,6 @@ export class PermissionService {
       return []
     }
 
-    return JSON.parse(user.customPermissions)
+    return JSON.parse(String(user.customPermissions))
   }
 }

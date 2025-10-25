@@ -333,7 +333,7 @@ async function showBanReasonInput(ctx: Context, currentUserId: number, targetUse
 
   await ctx.editMessageText(
     `🚫 **حظر مستخدم**\n\n`
-    + `**المستخدم:** ${user.firstName || user.username || 'مستخدم'}\n\n`
+    + `**المستخدم:** ${user.fullName || user.nickname || user.username || 'مستخدم'}\n\n`
     + '📝 **سبب الحظر:**\n'
     + 'اختر سبباً جاهزاً أو أدخل سبباً مخصصاً:',
     {

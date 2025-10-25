@@ -55,8 +55,6 @@ sendNotificationHandler.callbackQuery('notif:send:individual', async (ctx) => {
       telegramId: true,
       fullName: true,
       nickname: true,
-      firstName: true,
-      lastName: true,
       phone: true,
     },
     take: 20, // Limit to 20 users for inline keyboard

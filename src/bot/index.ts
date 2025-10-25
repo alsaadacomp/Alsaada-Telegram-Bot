@@ -91,21 +91,9 @@ export async function createBot(token: string, dependencies: Dependencies, botCo
   }))
   protectedBot.use(i18n)
 
-  // Load user permissions from database
+  // Load user permissions from database (but don't auto-create)
   protectedBot.use(async (ctx, next) => {
-    if (ctx.from) {
-      try {
-        // Get or create user
-        await RoleManager.getOrCreateUser(BigInt(ctx.from.id), {
-          username: ctx.from.username,
-          firstName: ctx.from.first_name,
-          lastName: ctx.from.last_name,
-        })
-      }
-      catch (error) {
-        logger.error({ error }, 'Error creating/loading user')
-      }
-    }
+    // Don't auto-create users - they will be created only after join request approval
     await next()
   })
 

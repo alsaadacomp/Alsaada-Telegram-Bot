@@ -1,4 +1,5 @@
 import type { Context } from '../../../context.js'
+import { EmploymentStatus } from '../../../../../generated/prisma/index.js'
 import { Composer, InlineKeyboard } from 'grammy'
 import { Database } from '../../../../modules/database/index.js'
 
@@ -46,6 +47,10 @@ employeeDetailsHandler.callbackQuery(/^hr:employee:details:(\d+)$/, async (ctx) 
             nameEn: true,
           },
         },
+        certifications: true,
+        skills: true,
+        documents: true,
+        workHistory: true,
       },
     })
 
@@ -59,7 +64,7 @@ employeeDetailsHandler.callbackQuery(/^hr:employee:details:(\d+)$/, async (ctx) 
 
     // تحديد نوع العامل (حالي أم سابق)
     const isCurrentEmployee = employee.isActive
-      && employee.employmentStatus === 'ACTIVE'
+      && employee.employmentStatus === EmploymentStatus.ACTIVE
       && !employee.resignationDate
       && !employee.terminationDate
 
@@ -118,16 +123,18 @@ employeeDetailsHandler.callbackQuery(/^hr:employee:details:(\d+)$/, async (ctx) 
     message += '📁 معلومات إضافية:\n'
 
     // عرض الحالة بطريقة مبسطة
-    const statusMap: { [key: string]: string } = {
-      ACTIVE: 'نشط',
-      ON_LEAVE: 'في إجازة',
-      SUSPENDED: 'معلق',
-      RESIGNED: 'استقال',
-      TERMINATED: 'فصل',
-      RETIRED: 'تقاعد',
+    const statusMap: { [key in EmploymentStatus]: string } = {
+      [EmploymentStatus.ACTIVE]: 'نشط',
+      [EmploymentStatus.ON_LEAVE]: 'في إجازة',
+      [EmploymentStatus.SUSPENDED]: 'معلق',
+      [EmploymentStatus.RESIGNED]: 'استقال',
+      [EmploymentStatus.TERMINATED]: 'فصل',
+      [EmploymentStatus.RETIRED]: 'تقاعد',
+      [EmploymentStatus.ON_MISSION]: 'في مهمة',
+      [EmploymentStatus.SETTLED]: 'مستقر',
     }
 
-    const employmentStatusText = statusMap[employee.employmentStatus] || employee.employmentStatus
+    const employmentStatusText = statusMap[employee.employmentStatus]
     const employeeStatusText = isCurrentEmployee ? 'موظف حالى' : 'موظف سابق'
 
     message += `📊 الحالة الوظيفية: ${employmentStatusText}\n`
@@ -168,9 +175,9 @@ employeeDetailsHandler.callbackQuery(/^hr:employee:details:(\d+)$/, async (ctx) 
     message += `🎯 التخصص: ${employee.major || 'غير محدد'}\n`
     message += `🏫 الجامعة: ${employee.university || 'غير محدد'}\n`
     message += `📅 سنة التخرج: ${employee.graduationYear || 'غير محدد'}\n`
-    message += `🏆 الشهادات: ${employee.certifications || 'غير محدد'}\n`
-    message += `🛠️ المهارات: ${employee.skills || 'غير محدد'}\n`
-    message += `💼 الخبرة السابقة: ${employee.previousExperience || 'غير محدد'}\n`
+    message += `🏆 الشهادات: ${employee.certifications?.length || 0}\n`
+    message += `🛠️ المهارات: ${employee.skills?.map(s => s.name).join(', ') || 'غير محدد'}\n`
+    message += `💼 الخبرة السابقة: ${employee.workHistory?.length || 0} وظيفة\n`
     message += `📊 سنوات الخبرة: ${employee.yearsOfExperience || 0}\n\n`
 
     // معلومات العمل
@@ -183,7 +190,7 @@ employeeDetailsHandler.callbackQuery(/^hr:employee:details:(\d+)$/, async (ctx) 
     message += '📁 الملفات والمرفقات:\n'
     message += `🖼️ الصورة الشخصية: ${employee.profilePhoto ? 'محفوظة' : 'غير محفوظة'}\n`
     message += `📄 السيرة الذاتية: ${employee.cv ? 'محفوظة' : 'غير محفوظة'}\n`
-    message += `📋 المستندات: ${employee.documents ? 'محفوظة' : 'غير محفوظة'}\n`
+    message += `📋 المستندات: ${employee.documents?.length || 0}\n`
     message += `🆔 بطاقة الرقم القومي: ${employee.nationalIdCardUrl ? 'محفوظة' : 'غير محفوظة'}\n\n`
 
     // نظام الإجازات

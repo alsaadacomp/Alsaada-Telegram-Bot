@@ -38,7 +38,7 @@ model Company {
   legalForm          String?
   capital            Float?
   currency           String?
-  bankAccounts       String?
+  bankAccounts       Json?
   taxOffice          String?
   taxRecord          String?
   chamberOfCommerce  String?
@@ -178,8 +178,8 @@ model User {
   id                                       Int                      @id @default(autoincrement())
   telegramId                               BigInt                   @unique
   username                                 String?                  @unique
-  firstName                                String?
-  lastName                                 String?
+  fullName                                 String?
+  nickname                                 String?
   phone                                    String?
   email                                    String?
   role                                     Role                     @default(GUEST)
@@ -188,15 +188,13 @@ model User {
   bannedAt                                 DateTime?
   bannedReason                             String?
   bannedBy                                 Int?
-  customPermissions                        String?
+  customPermissions                        Json?
   department                               String?
   position                                 String?
   notes                                    String?
   lastActiveAt                             DateTime?                @updatedAt
   createdAt                                DateTime                 @default(now())
   updatedAt                                DateTime                 @updatedAt
-  fullName                                 String?
-  nickname                                 String?
   JoinRequest_JoinRequest_userIdToUser     JoinRequest?             @relation("JoinRequest_userIdToUser")
   JoinRequest_JoinRequest_rejectedByToUser JoinRequest[]            @relation("JoinRequest_rejectedByToUser")
   JoinRequest_JoinRequest_approvedByToUser JoinRequest[]            @relation("JoinRequest_approvedByToUser")
@@ -205,6 +203,7 @@ model User {
   createdTemplates                         NotificationTemplate[]   @relation("TemplateCreator")
   roleChangedBy                            RoleChange[]             @relation("ChangedByUser")
   roleChanges                              RoleChange[]             @relation("UserRoleChanges")
+  auditLogs                                AuditLog[]               @relation("UserAuditLogs")
 
   @@index([isActive])
   @@index([role])
@@ -221,23 +220,23 @@ model User {
 }
 
 model JoinRequest {
-  id                                Int       @id @default(autoincrement())
-  telegramId                        BigInt    @unique
+  id                                Int           @id @default(autoincrement())
+  telegramId                        BigInt        @unique
   username                          String?
   fullName                          String
   nickname                          String?
   phone                             String
-  status                            String    @default("PENDING")
-  requestedAt                       DateTime  @default(now())
+  status                            RequestStatus @default(PENDING)
+  requestedAt                       DateTime      @default(now())
   respondedAt                       DateTime?
   approvedBy                        Int?
   rejectedBy                        Int?
   rejectionReason                   String?
   notes                             String?
-  userId                            Int?      @unique
-  User_JoinRequest_userIdToUser     User?     @relation("JoinRequest_userIdToUser", fields: [userId], references: [id])
-  User_JoinRequest_rejectedByToUser User?     @relation("JoinRequest_rejectedByToUser", fields: [rejectedBy], references: [id])
-  User_JoinRequest_approvedByToUser User?     @relation("JoinRequest_approvedByToUser", fields: [approvedBy], references: [id])
+  userId                            Int?          @unique
+  User_JoinRequest_userIdToUser     User?         @relation("JoinRequest_userIdToUser", fields: [userId], references: [id])
+  User_JoinRequest_rejectedByToUser User?         @relation("JoinRequest_rejectedByToUser", fields: [rejectedBy], references: [id])
+  User_JoinRequest_approvedByToUser User?         @relation("JoinRequest_approvedByToUser", fields: [approvedBy], references: [id])
 
   @@index([requestedAt])
   @@index([status])
@@ -295,12 +294,12 @@ model NotificationPreferences {
   id                Int      @id @default(autoincrement())
   userId            Int      @unique
   enabled           Boolean  @default(true)
-  types             String?
-  priorities        String?
+  types             Json?
+  priorities        Json?
   quietHoursEnabled Boolean  @default(false)
   quietHoursStart   String?
   quietHoursEnd     String?
-  channels          String?
+  channels          Json?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -319,23 +318,23 @@ model Notification {
   message         String
   type            NotificationType        @default(INFO)
   priority        NotificationPriority    @default(NORMAL)
-  status          String                  @default("PENDING")
+  status          GeneralStatus           @default(PENDING)
   targetAudience  String
   targetRole      String?
-  targetUserIds   String?
-  data            String?
-  buttons         String?
+  targetUserIds   Json?
+  data            Json?
+  buttons         Json?
   image           String?
   parseMode       String?                 @default("HTML")
   scheduledAt     DateTime?
   sentAt          DateTime?
   recurring       Boolean                 @default(false)
-  recurringConfig String?
+  recurringConfig Json?
   templateId      String?
   failureReason   String?
   successCount    Int                     @default(0)
   failureCount    Int                     @default(0)
-  metadata        String?
+  metadata        Json?
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
   recipients      NotificationRecipient[]
@@ -356,7 +355,7 @@ model NotificationRecipient {
   id             Int          @id @default(autoincrement())
   notificationId String
   userId         Int
-  status         String       @default("pending")
+  status         GeneralStatus @default(PENDING)
   sentAt         DateTime?
   failureReason  String?
   createdAt      DateTime     @default(now())
@@ -382,8 +381,8 @@ model NotificationTemplate {
   message   String
   type      NotificationType     @default(INFO)
   priority  NotificationPriority @default(NORMAL)
-  variables String?
-  buttons   String?
+  variables Json?
+  buttons   Json?
   isActive  Boolean              @default(true)
   createdBy Int?
   createdAt DateTime             @default(now())
@@ -397,26 +396,24 @@ model NotificationTemplate {
   @@index([name])
   @@index([createdAt])
   @@index([updatedAt])
-  @@index([variables])
   @@index([isActive, type])
   @@index([type, priority])
 }
 
 model Setting {
-  id             Int              @id @default(autoincrement())
-  key            String
-  value          String
-  scope          SettingScope     @default(GLOBAL)
-  category       SettingCategory  @default(SYSTEM)
-  type           SettingType
-  userId         Int?             @default(0)
-  featureId      String?          @default("")
-  description    String?
-  isSecret       Boolean          @default(false)
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  updatedBy      Int?
-  SettingHistory SettingHistory[]
+  id          Int             @id @default(autoincrement())
+  key         String
+  value       String
+  scope       SettingScope    @default(GLOBAL)
+  category    SettingCategory @default(SYSTEM)
+  type        SettingType
+  userId      Int?            @default(0)
+  featureId   String?         @default("")
+  description String?
+  isSecret    Boolean         @default(false)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  updatedBy   Int?
 
   @@unique([key, scope, userId, featureId])
   @@index([featureId])
@@ -430,29 +427,6 @@ model Setting {
   @@index([updatedAt])
   @@index([category, scope])
   @@index([key, scope])
-}
-
-model SettingHistory {
-  id         Int      @id @default(autoincrement())
-  settingId  Int
-  settingKey String
-  oldValue   String?
-  newValue   String
-  changedBy  Int?
-  reason     String?
-  createdAt  DateTime @default(now())
-  Setting    Setting  @relation(fields: [settingId], references: [id], onDelete: Cascade)
-
-  @@index([createdAt])
-  @@index([changedBy])
-  @@index([settingKey])
-  @@index([settingId])
-  @@index([oldValue])
-  @@index([newValue])
-  @@index([reason])
-  @@index([changedBy, createdAt])
-  @@index([settingId, createdAt])
-  @@index([settingKey, createdAt])
 }
 
 model Department {
@@ -488,9 +462,8 @@ model Position {
   departmentId Int
   orderIndex   Int        @default(0)
   isActive     Boolean    @default(true)
-  // نظام الإجازات الافتراضي للوظيفة
-  defaultWorkDaysPerCycle  Int?                     // عدد أيام العمل الافتراضي في الدورة
-  defaultLeaveDaysPerCycle Int?                     // عدد أيام الإجازة الافتراضي في الدورة
+  defaultWorkDaysPerCycle  Int?
+  defaultLeaveDaysPerCycle Int?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   createdBy    Int?
@@ -530,12 +503,12 @@ model Governorate {
 }
 
 model Employee {
-  id                       Int                      @id @default(autoincrement())
-  employeeCode             String                   @unique
+  id                       Int               @id @default(autoincrement())
+  employeeCode             String            @unique
   fullName                 String
   fullNameEn               String?
   nickname                 String?
-  nationalId               String                   @unique
+  nationalId               String            @unique
   passportNumber           String?
   gender                   Gender
   dateOfBirth              DateTime
@@ -548,7 +521,7 @@ model Employee {
   workEmail                String?
   personalPhone            String
   workPhone                String?
-  telegramId               String?                  // رقم Telegram ID
+  telegramId               String?
   emergencyContactName     String
   emergencyContactPhone    String
   emergencyContactRelation String?
@@ -558,32 +531,31 @@ model Employee {
   governorateId            Int?
   city                     String
   region                   String?
-  country                  String                   @default("Egypt")
+  country                  String            @default("Egypt")
   postalCode               String?
   companyId                Int
   departmentId             Int
   positionId               Int
   employmentType           EmploymentType
   contractType             ContractType
-  employmentStatus         EmploymentStatus         @default(ACTIVE)
+  employmentStatus         EmploymentStatus  @default(ACTIVE)
   hireDate                 DateTime
   confirmationDate         DateTime?
   resignationDate          DateTime?
   terminationDate          DateTime?
   terminationReason        String?
   basicSalary              Float
-  allowances               Float?                   @default(0)
+  allowances               Float?            @default(0)
   totalSalary              Float
-  currency                 String                   @default("EGP")
-  paymentMethod            PaymentMethod            @default(BANK_TRANSFER)
+  currency                 String            @default("EGP")
+  paymentMethod            PaymentMethod     @default(BANK_TRANSFER)
   bankName                 String?
   bankAccountNumber        String?
   iban                     String?
-  // حقول الرواتب والمزايا الجديدة
-  transferNumber1          String?                  // رقم تحويل أول
-  transferType1            TransferType?           // نوع التحويل الأول
-  transferNumber2          String?                  // رقم تحويل ثاني
-  transferType2            TransferType?           // نوع التحويل الثاني
+  transferNumber1          String?
+  transferType1            TransferType?
+  transferNumber2          String?
+  transferType2            TransferType?
   socialInsuranceNumber    String?
   taxNumber                String?
   insuranceStartDate       DateTime?
@@ -594,52 +566,52 @@ model Employee {
   major                    String?
   university               String?
   graduationYear           Int?
-  certifications           String?
-  skills                   String?
-  previousExperience       String?
-  yearsOfExperience        Int?                     @default(0)
-  // حقول الملفات والمرفقات
-  profilePhoto             String?                  // صورة الملف الشخصي
-  cv                       String?                  // السيرة الذاتية
-  documents                String?                  // المستندات
-  nationalIdCardUrl        String?                  // رابط بطاقة الرقم القومي
-  annualLeaveBalance       Int                      @default(21)
-  sickLeaveBalance         Int                      @default(180)
-  casualLeaveBalance       Int                      @default(7)
-  attendanceRequired       Boolean                  @default(false)
-  // نظام الإجازات الجديد
-  workDaysPerCycle         Int?                     // عدد أيام العمل في الدورة
-  leaveDaysPerCycle        Int?                     // عدد أيام الإجازة في الدورة
-  currentWorkDays          Int?                     @default(0) // عدد أيام العمل الحالية
-  currentLeaveDays         Int?                     @default(0) // عدد أيام الإجازة الحالية
-  lastLeaveStartDate       DateTime?                // تاريخ بداية آخر إجازة
-  lastLeaveEndDate         DateTime?                // تاريخ نهاية آخر إجازة
-  nextLeaveStartDate       DateTime?                // تاريخ بداية الإجازة القادمة
-  nextLeaveEndDate         DateTime?                // تاريخ نهاية الإجازة القادمة
+  yearsOfExperience        Int?              @default(0)
+  profilePhoto             String?
+  cv                       String?
+  nationalIdCardUrl        String?
+  annualLeaveBalance       Int               @default(21)
+  sickLeaveBalance         Int               @default(180)
+  casualLeaveBalance        Int               @default(7)
+  attendanceRequired       Boolean           @default(false)
+  workDaysPerCycle         Int?
+  leaveDaysPerCycle        Int?
+  currentWorkDays          Int?              @default(0)
+  currentLeaveDays         Int?              @default(0)
+  lastLeaveStartDate       DateTime?
+  lastLeaveEndDate         DateTime?
+  nextLeaveStartDate       DateTime?
+  nextLeaveEndDate         DateTime?
   fingerprintId            String?
   notes                    String?
-  isActive                 Boolean                  @default(true)
-  createdAt                DateTime                 @default(now())
-  updatedAt                DateTime                 @updatedAt
+  isActive                 Boolean           @default(true)
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
   createdBy                Int?
   updatedBy                Int?
-  operatedEquipment        Equipment[]              @relation("EquipmentOperator")
-  fuelLogs                 FuelLog[]                @relation("FuelOperator")
-  performedMaintenance     MaintenanceRecord[]      @relation("MaintenancePerformer")
-  shiftAssignments         ShiftAssignment[]        @relation("ShiftOperator")
-  equipmentUsages          EquipmentUsage[]         @relation("UsageOperator")
+
+  operatedEquipment        Equipment[]       @relation("EquipmentOperator")
+  fuelLogs                 FuelLog[]         @relation("FuelOperator")
+  performedMaintenance     MaintenanceRecord[] @relation("MaintenancePerformer")
+  shiftAssignments         ShiftAssignment[]   @relation("ShiftOperator")
+  equipmentUsages          EquipmentUsage[]    @relation("UsageOperator")
   attendanceExceptions     HR_AttendanceException[]
-  directManager            Employee?                @relation("ManagerSubordinates", fields: [directManagerId], references: [id])
-  subordinates             Employee[]               @relation("ManagerSubordinates")
-  position                 Position                 @relation(fields: [positionId], references: [id])
-  department               Department               @relation(fields: [departmentId], references: [id])
-  company                  Company                  @relation(fields: [companyId], references: [id])
-  governorate              Governorate?             @relation("EmployeeGovernorate", fields: [governorateId], references: [id])
-  advances                 HR_EmployeeAdvance[]     @relation("EmployeeAdvances")
-  leaveReplacements        HR_EmployeeLeave[]       @relation("LeaveReplacements")
-  leaves                   HR_EmployeeLeave[]       @relation("EmployeeLeaves")
-  payrolls                 HR_MonthlyPayroll[]      @relation("EmployeePayrolls")
-  rotations                HR_WorkRotation[]        @relation("EmployeeRotations")
+  directManager            Employee?         @relation("ManagerSubordinates", fields: [directManagerId], references: [id])
+  subordinates             Employee[]        @relation("ManagerSubordinates")
+  position                 Position          @relation(fields: [positionId], references: [id])
+  department               Department        @relation(fields: [departmentId], references: [id])
+  company                  Company           @relation(fields: [companyId], references: [id])
+  governorate              Governorate?      @relation("EmployeeGovernorate", fields: [governorateId], references: [id])
+  advances                 HR_EmployeeAdvance[] @relation("EmployeeAdvances")
+  leaveReplacements        HR_EmployeeLeave[] @relation("LeaveReplacements")
+  leaves                   HR_EmployeeLeave[] @relation("EmployeeLeaves")
+  payrolls                 HR_MonthlyPayroll[] @relation("EmployeePayrolls")
+  rotations                HR_WorkRotation[]   @relation("EmployeeRotations")
+
+  skills                   Skill[]
+  certifications           Certification[]
+  documents                Document[]
+  workHistory              WorkExperience[]
 
   @@index([employeeCode])
   @@index([nationalId])
@@ -664,122 +636,147 @@ model Employee {
   @@index([departmentId, isActive])
   @@index([employmentStatus, isActive])
   @@map("HR_Employee")
-  
-  // 📊 العلاقات مع السجلات التاريخية
-  statusHistory            EmployeeStatusHistory[]          @relation("EmployeeStatusHistory")
-  positionHistory          EmployeePositionHistory[]        @relation("EmployeePositionHistory")
-  codeHistory              EmployeeCodeHistory[]            @relation("EmployeeCodeHistory")
-  salaryHistory            EmployeeSalaryHistory[]          @relation("EmployeeSalaryHistory")
-  departmentHistory        EmployeeDepartmentHistory[]      @relation("EmployeeDepartmentHistory")
-  financialTransactions    EmployeeFinancialTransactions[]  @relation("EmployeeFinancialTransactions")
-  advanceHistory           EmployeeAdvanceHistory[]         @relation("EmployeeAdvanceHistory")
-  payrollHistory           EmployeePayrollHistory[]         @relation("EmployeePayrollHistory")
-  allowanceHistory         EmployeeAllowanceHistory[]       @relation("EmployeeAllowanceHistory")
-  deductionHistory         EmployeeDeductionHistory[]       @relation("EmployeeDeductionHistory")
-  workCycleHistory         EmployeeWorkCycleHistory[]       @relation("EmployeeWorkCycleHistory")
-  cycleLog                 EmployeeCycleLog[]               @relation("EmployeeCycleLog")
-  leaveHistoryRecords      EmployeeLeaveHistory[]           @relation("EmployeeLeaveHistoryRecords")
-  leaveBalance             EmployeeLeaveBalance?            @relation("EmployeeLeaveBalance")
-  cycleInterruptions       EmployeeCycleInterruptions[]     @relation("EmployeeCycleInterruptions")
-  contactHistory           EmployeeContactHistory[]         @relation("EmployeeContactHistory")
-  documentHistory          EmployeeDocumentHistory[]        @relation("EmployeeDocumentHistory")
-  dataChangeLog            EmployeeDataChangeLog[]          @relation("EmployeeDataChangeLog")
-  performanceHistory       EmployeePerformanceHistory[]     @relation("EmployeePerformanceHistory")
-  trainingHistory          EmployeeTrainingHistory[]        @relation("EmployeeTrainingHistory")
-  disciplinaryHistory      EmployeeDisciplinaryHistory[]    @relation("EmployeeDisciplinaryHistory")
-  auditLog                 EmployeeAuditLog[]               @relation("EmployeeAuditLog")
+}
+
+model Skill {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  employees Employee[]
+
+  @@map("HR_Skill")
+}
+
+model Document {
+  id         Int      @id @default(autoincrement())
+  name       String
+  url        String
+  type       String
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("HR_Document")
+}
+
+model Certification {
+  id           Int      @id @default(autoincrement())
+  name         String
+  issuingOrg   String
+  issueDate    DateTime
+  expiryDate   DateTime?
+  credentialId String?
+  url          String?
+  employeeId   Int
+  employee     Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("HR_Certification")
+}
+
+model WorkExperience {
+  id          Int      @id @default(autoincrement())
+  companyName String
+  position    String
+  startDate   DateTime
+  endDate     DateTime?
+  description String?
+  employeeId  Int
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("HR_WorkExperience")
 }
 
 model HR_WorkRotation {
-  id           Int      @id @default(autoincrement())
+  id           Int           @id @default(autoincrement())
   employeeId   Int
   rotationType String
   startDate    DateTime
   endDate      DateTime
-  status       String   @default("planned")
+  status       GeneralStatus @default(PLANNED)
   location     String?
   notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  employee     Employee @relation("EmployeeRotations", fields: [employeeId], references: [id], onDelete: Cascade)
-  
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  employee     Employee      @relation("EmployeeRotations", fields: [employeeId], references: [id], onDelete: Cascade)
+
   @@index([employeeId])
   @@index([status])
   @@index([startDate, endDate])
 }
 
 model HR_EmployeeLeave {
-  id              Int       @id @default(autoincrement())
+  id              Int           @id @default(autoincrement())
   employeeId      Int
   leaveType       String
   startDate       DateTime
   endDate         DateTime
   totalDays       Int
   reason          String?
-  status          String    @default("pending")
+  status          GeneralStatus @default(PENDING)
   replacementId   Int?
   approvedBy      Int?
   approvedAt      DateTime?
   rejectionReason String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  replacement     Employee? @relation("LeaveReplacements", fields: [replacementId], references: [id])
-  employee        Employee  @relation("EmployeeLeaves", fields: [employeeId], references: [id], onDelete: Cascade)
-  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  replacement     Employee?     @relation("LeaveReplacements", fields: [replacementId], references: [id])
+  employee        Employee      @relation("EmployeeLeaves", fields: [employeeId], references: [id], onDelete: Cascade)
+
   @@index([employeeId])
   @@index([status])
   @@index([startDate, endDate])
 }
 
 model HR_EmployeeAdvance {
-  id                 Int       @id @default(autoincrement())
+  id                 Int            @id @default(autoincrement())
   employeeId         Int
   amount             Float
   reason             String?
-  requestDate        DateTime  @default(now())
-  approvalStatus     String    @default("pending")
+  requestDate        DateTime       @default(now())
+  approvalStatus     ApprovalStatus @default(PENDING)
   approvedBy         Int?
   approvedAt         DateTime?
   deductionStartDate DateTime?
   monthlyDeduction   Float?
   remainingBalance   Float?
-  isPaid             Boolean   @default(false)
+  isPaid             Boolean        @default(false)
   notes              String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  employee           Employee  @relation("EmployeeAdvances", fields: [employeeId], references: [id], onDelete: Cascade)
-  
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  employee           Employee       @relation("EmployeeAdvances", fields: [employeeId], references: [id], onDelete: Cascade)
+
   @@index([employeeId])
   @@index([approvalStatus])
   @@index([isPaid])
 }
 
 model HR_MonthlyPayroll {
-  id                 Int       @id @default(autoincrement())
+  id                 Int           @id @default(autoincrement())
   employeeId         Int
   month              Int
   year               Int
   basicSalary        Float
-  housingAllowance   Float     @default(0)
-  transportAllowance Float     @default(0)
-  foodAllowance      Float     @default(0)
-  fieldAllowance     Float     @default(0)
-  otherAllowances    Float     @default(0)
-  advances           Float     @default(0)
-  penalties          Float     @default(0)
-  absences           Float     @default(0)
-  otherDeductions    Float     @default(0)
+  housingAllowance   Float         @default(0)
+  transportAllowance Float         @default(0)
+  foodAllowance      Float         @default(0)
+  fieldAllowance     Float         @default(0)
+  otherAllowances    Float         @default(0)
+  advances           Float         @default(0)
+  penalties          Float         @default(0)
+  absences           Float         @default(0)
+  otherDeductions    Float         @default(0)
   grossSalary        Float
   totalDeductions    Float
   netSalary          Float
-  paymentStatus      String    @default("pending")
+  paymentStatus      PaymentStatus @default(PENDING)
   paymentDate        DateTime?
   paymentMethod      String?
   notes              String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  employee           Employee  @relation("EmployeePayrolls", fields: [employeeId], references: [id], onDelete: Cascade)
-  
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  employee           Employee      @relation("EmployeePayrolls", fields: [employeeId], references: [id], onDelete: Cascade)
+
   @@unique([employeeId, month, year])
   @@index([employeeId])
   @@index([month, year])
@@ -787,18 +784,18 @@ model HR_MonthlyPayroll {
 }
 
 model HR_AttendanceException {
-  id            Int      @id @default(autoincrement())
+  id            Int           @id @default(autoincrement())
   employeeId    Int
   date          DateTime
   exceptionType String
   hours         Float?
   reason        String?
-  status        String   @default("pending")
+  status        GeneralStatus @default(PENDING)
   approvedBy    Int?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  employee      Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
   @@index([employeeId])
   @@index([date])
   @@index([status])
@@ -908,9 +905,9 @@ model Equipment {
   dailyRentalRate      Float?
   hourlyRate           Float?
   fuelConsumptionRate  Float?
-  photos               String?
-  documents            String?
-  specifications       String?
+  photos               Json?
+  documents            Json?
+  specifications       Json?
   notes                String?
   isActive             Boolean               @default(true)
   createdAt            DateTime              @default(now())
@@ -968,8 +965,8 @@ model MaintenanceRecord {
   workingHoursAfter  Int?
   conditionBefore    EquipmentCondition?
   conditionAfter     EquipmentCondition?
-  photos             String?
-  documents          String?
+  photos             Json?
+  documents          Json?
   notes              String?
   isWarranty         Boolean             @default(false)
   createdAt          DateTime            @default(now())
@@ -1034,7 +1031,7 @@ model EquipmentCost {
   paymentMethod       PaymentMethod?
   maintenanceRecordId Int?
   notes               String?
-  documents           String?
+  documents           Json?
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
   createdBy           Int?
@@ -1096,8 +1093,8 @@ model MaintenanceSchedule {
   nextDueHours         Int?
   estimatedCost        Float?
   estimatedDuration    Float?
-  requiredParts        String?
-  requiredOils         String?
+  requiredParts        Json?
+  requiredOils         Json?
   notifyBeforeDays     Int?                    @default(7)
   notifyBeforeKm       Int?
   notifyBeforeHours    Int?
@@ -1127,7 +1124,7 @@ model ShiftAssignment {
   shift       WorkShift
   startDate   DateTime
   endDate     DateTime?
-  workDays    String?
+  workDays    Json?
   projectId   Int?
   isActive    Boolean   @default(true)
   notes       String?
@@ -1149,12 +1146,71 @@ model ShiftAssignment {
   @@map("Equipment_Shift_Assignment")
 }
 
+model AuditLog {
+  id              Int             @id @default(autoincrement())
+  timestamp       DateTime        @default(now())
+  model           String
+  recordId        String
+  action          AuditActionType
+  category        String?
+  fieldName       String?
+  oldValue        String?
+  newValue        String?
+  changedByUserId Int?
+  description     String?
+  metadata        Json?
+
+  changedByUser User? @relation("UserAuditLogs", fields: [changedByUserId], references: [id])
+
+  @@index([timestamp])
+  @@index([model, recordId])
+  @@index([action])
+  @@index([category])
+  @@index([changedByUserId])
+}
+
+enum AuditActionType {
+  CREATE
+  UPDATE
+  DELETE
+}
+
 enum Role {
   SUPER_ADMIN
   ADMIN
   USER
   GUEST
   MODERATOR
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum GeneralStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SENT
+  FAILED
+  READ
+  CANCELLED
+  PLANNED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  CANCELLED
+  FAILED
 }
 
 enum NotificationType {
@@ -1236,6 +1292,8 @@ enum EmploymentStatus {
   RESIGNED
   TERMINATED
   RETIRED
+  ON_MISSION
+  SETTLED
 }
 
 enum PaymentMethod {
@@ -1370,564 +1428,4 @@ enum ShiftStatus {
   COMPLETED
   CANCELLED
   NO_SHOW
-}
-
-// ==================== 📊 سجلات تاريخ العمال (Employee History Records) ====================
-
-// 1️⃣ سجل حالات العامل
-model EmployeeStatusHistory {
-  id          Int      @id @default(autoincrement())
-  employeeId  Int
-  employee    Employee @relation("EmployeeStatusHistory", fields: [employeeId], references: [id], onDelete: Cascade)
-  oldStatus   String?
-  newStatus   String
-  statusDate  DateTime
-  reason      String?
-  notes       String?
-  changedBy   BigInt?
-  createdAt   DateTime @default(now())
-  
-  @@index([employeeId])
-  @@index([statusDate])
-  @@index([newStatus])
-  @@index([changedBy])
-}
-
-// 2️⃣ سجل تاريخ الوظائف
-model EmployeePositionHistory {
-  id             Int      @id @default(autoincrement())
-  employeeId     Int
-  employee       Employee @relation("EmployeePositionHistory", fields: [employeeId], references: [id], onDelete: Cascade)
-  oldPositionId  Int?
-  newPositionId  Int
-  oldPositionName String?
-  newPositionName String
-  changeDate     DateTime
-  reason         String?
-  notes          String?
-  changedBy      BigInt?
-  createdAt      DateTime @default(now())
-  
-  @@index([employeeId])
-  @@index([changeDate])
-  @@index([oldPositionId])
-  @@index([newPositionId])
-}
-
-// 3️⃣ سجل تاريخ الأكواد
-model EmployeeCodeHistory {
-  id         Int      @id @default(autoincrement())
-  employeeId Int
-  employee   Employee @relation("EmployeeCodeHistory", fields: [employeeId], references: [id], onDelete: Cascade)
-  oldCode    String?
-  newCode    String
-  changeDate DateTime
-  reason     String?
-  notes      String?
-  changedBy  BigInt?
-  createdAt  DateTime @default(now())
-  
-  @@index([employeeId])
-  @@index([changeDate])
-  @@index([oldCode])
-  @@index([newCode])
-}
-
-// 4️⃣ سجل تاريخ الرواتب
-model EmployeeSalaryHistory {
-  id              Int      @id @default(autoincrement())
-  employeeId      Int
-  employee        Employee @relation("EmployeeSalaryHistory", fields: [employeeId], references: [id], onDelete: Cascade)
-  oldBasicSalary  Float?
-  newBasicSalary  Float
-  oldAllowances   Float?
-  newAllowances   Float?
-  oldTotalSalary  Float?
-  newTotalSalary  Float
-  changeDate      DateTime
-  effectiveDate   DateTime?
-  reason          String?
-  increasePercent Float?
-  notes           String?
-  changedBy       BigInt?
-  createdAt       DateTime @default(now())
-  
-  @@index([employeeId])
-  @@index([changeDate])
-  @@index([effectiveDate])
-}
-
-// 5️⃣ سجل نقل الأقسام
-model EmployeeDepartmentHistory {
-  id                Int      @id @default(autoincrement())
-  employeeId        Int
-  employee          Employee @relation("EmployeeDepartmentHistory", fields: [employeeId], references: [id], onDelete: Cascade)
-  oldDepartmentId   Int?
-  newDepartmentId   Int
-  oldDepartmentName String?
-  newDepartmentName String
-  transferDate      DateTime
-  reason            String?
-  notes             String?
-  changedBy         BigInt?
-  createdAt         DateTime @default(now())
-  
-  @@index([employeeId])
-  @@index([transferDate])
-  @@index([oldDepartmentId])
-  @@index([newDepartmentId])
-}
-
-// ==================== 💰 السجلات المالية (Financial Records) ====================
-
-// 6️⃣ سجل جميع المعاملات المالية
-model EmployeeFinancialTransactions {
-  id              Int      @id @default(autoincrement())
-  employeeId      Int
-  employee        Employee @relation("EmployeeFinancialTransactions", fields: [employeeId], references: [id], onDelete: Cascade)
-  transactionType String
-  amount          Float
-  currency        String   @default("EGP")
-  transactionDate DateTime
-  description     String?
-  referenceId     Int?
-  referenceType   String?
-  status          String   @default("completed")
-  notes           String?
-  createdBy       BigInt?
-  createdAt       DateTime @default(now())
-  
-  @@index([employeeId])
-  @@index([transactionDate])
-  @@index([transactionType])
-  @@index([status])
-  @@index([referenceId])
-}
-
-// 7️⃣ سجل تاريخ السلف
-model EmployeeAdvanceHistory {
-  id                 Int       @id @default(autoincrement())
-  employeeId         Int
-  employee           Employee  @relation("EmployeeAdvanceHistory", fields: [employeeId], references: [id], onDelete: Cascade)
-  amount             Float
-  requestDate        DateTime
-  approvalDate       DateTime?
-  approvedBy         Int?
-  approvalStatus     String
-  rejectionReason    String?
-  deductionStartDate DateTime?
-  monthlyDeduction   Float?
-  totalDeducted      Float?    @default(0)
-  remainingBalance   Float?
-  isPaidOff          Boolean   @default(false)
-  paidOffDate        DateTime?
-  notes              String?
-  createdAt          DateTime  @default(now())
-  
-  @@index([employeeId])
-  @@index([requestDate])
-  @@index([approvalStatus])
-  @@index([isPaidOff])
-}
-
-// 8️⃣ سجل الرواتب الشهرية
-model EmployeePayrollHistory {
-  id                  Int       @id @default(autoincrement())
-  employeeId          Int
-  employee            Employee  @relation("EmployeePayrollHistory", fields: [employeeId], references: [id], onDelete: Cascade)
-  month               Int
-  year                Int
-  basicSalary         Float
-  housingAllowance    Float     @default(0)
-  transportAllowance  Float     @default(0)
-  foodAllowance       Float     @default(0)
-  fieldAllowance      Float     @default(0)
-  otherAllowances     Float     @default(0)
-  bonuses             Float     @default(0)
-  grossSalary         Float
-  advanceDeductions   Float     @default(0)
-  penalties           Float     @default(0)
-  absenceDeductions   Float     @default(0)
-  taxDeductions       Float     @default(0)
-  insuranceDeductions Float     @default(0)
-  otherDeductions     Float     @default(0)
-  totalDeductions     Float
-  netSalary           Float
-  paymentDate         DateTime?
-  paymentMethod       String?
-  paymentStatus       String    @default("pending")
-  notes               String?
-  createdAt           DateTime  @default(now())
-  
-  @@unique([employeeId, month, year])
-  @@index([employeeId])
-  @@index([month, year])
-  @@index([paymentStatus])
-  @@index([paymentDate])
-}
-
-// 9️⃣ سجل تاريخ البدلات
-model EmployeeAllowanceHistory {
-  id            Int      @id @default(autoincrement())
-  employeeId    Int
-  employee      Employee @relation("EmployeeAllowanceHistory", fields: [employeeId], references: [id], onDelete: Cascade)
-  allowanceType String
-  oldAmount     Float?
-  newAmount     Float
-  changeDate    DateTime
-  effectiveDate DateTime?
-  reason        String?
-  isRecurring   Boolean  @default(true)
-  notes         String?
-  changedBy     BigInt?
-  createdAt     DateTime @default(now())
-  
-  @@index([employeeId])
-  @@index([changeDate])
-  @@index([allowanceType])
-  @@index([effectiveDate])
-}
-
-// 🔟 سجل الخصومات
-model EmployeeDeductionHistory {
-  id             Int       @id @default(autoincrement())
-  employeeId     Int
-  employee       Employee  @relation("EmployeeDeductionHistory", fields: [employeeId], references: [id], onDelete: Cascade)
-  deductionType  String
-  amount         Float
-  deductionDate  DateTime
-  reason         String?
-  referenceId    Int?
-  referenceType  String?
-  isRecovered    Boolean   @default(false)
-  recoveredDate  DateTime?
-  notes          String?
-  appliedBy      BigInt?
-  createdAt      DateTime  @default(now())
-  
-  @@index([employeeId])
-  @@index([deductionDate])
-  @@index([deductionType])
-  @@index([isRecovered])
-}
-
-// ==================== 🏝️ سجلات نظام الدورات والإجازات (Cycle & Leave System) ====================
-
-// 1️⃣1️⃣ سجل تغييرات نظام الدورة
-model EmployeeWorkCycleHistory {
-  id                   Int       @id @default(autoincrement())
-  employeeId           Int
-  employee             Employee  @relation("EmployeeWorkCycleHistory", fields: [employeeId], references: [id], onDelete: Cascade)
-  oldWorkDaysPerCycle  Int?
-  newWorkDaysPerCycle  Int
-  oldLeaveDaysPerCycle Int?
-  newLeaveDaysPerCycle Int
-  changeDate           DateTime
-  effectiveDate        DateTime?
-  reason               String?
-  notes                String?
-  changedBy            BigInt?
-  createdAt            DateTime  @default(now())
-  
-  @@index([employeeId])
-  @@index([changeDate])
-  @@index([effectiveDate])
-}
-
-// 1️⃣2️⃣ سجل الدورات المكتملة
-model EmployeeCycleLog {
-  id               Int      @id @default(autoincrement())
-  employeeId       Int
-  employee         Employee @relation("EmployeeCycleLog", fields: [employeeId], references: [id], onDelete: Cascade)
-  cycleNumber      Int
-  cycleType        String
-  startDate        DateTime
-  endDate          DateTime
-  plannedDays      Int
-  actualDays       Int
-  wasInterrupted   Boolean  @default(false)
-  interruptionDays Int?     @default(0)
-  completionStatus String   @default("completed")
-  notes            String?
-  createdAt        DateTime @default(now())
-  
-  @@index([employeeId])
-  @@index([cycleNumber])
-  @@index([startDate, endDate])
-  @@index([cycleType])
-  @@index([completionStatus])
-}
-
-// 1️⃣3️⃣ سجل الإجازات الفعلية
-model EmployeeLeaveHistory {
-  id              Int       @id @default(autoincrement())
-  employeeId      Int
-  employee        Employee  @relation("EmployeeLeaveHistoryRecords", fields: [employeeId], references: [id], onDelete: Cascade)
-  leaveType       String
-  startDate       DateTime
-  endDate         DateTime
-  totalDays       Int
-  requestDate     DateTime?
-  approvalDate    DateTime?
-  approvedBy      Int?
-  approvalStatus  String    @default("approved")
-  rejectionReason String?
-  replacementId   Int?
-  isCompleted     Boolean   @default(false)
-  returnDate      DateTime?
-  notes           String?
-  createdAt       DateTime  @default(now())
-  
-  @@index([employeeId])
-  @@index([startDate, endDate])
-  @@index([leaveType])
-  @@index([approvalStatus])
-  @@index([isCompleted])
-}
-
-// 1️⃣4️⃣ سجل رصيد الإجازات
-model EmployeeLeaveBalance {
-  id                 Int      @id @default(autoincrement())
-  employeeId         Int      @unique
-  employee           Employee @relation("EmployeeLeaveBalance", fields: [employeeId], references: [id], onDelete: Cascade)
-  annualLeaveBalance Int      @default(21)
-  sickLeaveBalance   Int      @default(180)
-  casualLeaveBalance Int      @default(7)
-  usedAnnualLeave    Int      @default(0)
-  usedSickLeave      Int      @default(0)
-  usedCasualLeave    Int      @default(0)
-  lastUpdated        DateTime @updatedAt
-  yearStartDate      DateTime?
-  notes              String?
-  createdAt          DateTime @default(now())
-  
-  @@index([employeeId])
-  @@index([lastUpdated])
-}
-
-// 1️⃣5️⃣ سجل انقطاعات الدورات
-model EmployeeCycleInterruptions {
-  id                Int       @id @default(autoincrement())
-  employeeId        Int
-  employee          Employee  @relation("EmployeeCycleInterruptions", fields: [employeeId], references: [id], onDelete: Cascade)
-  cycleLogId        Int?
-  interruptionType  String
-  startDate         DateTime
-  endDate           DateTime
-  totalDays         Int
-  reason            String?
-  wasApproved       Boolean   @default(false)
-  approvedBy        Int?
-  approvalDate      DateTime?
-  compensationDays  Int?      @default(0)
-  isCompensated     Boolean   @default(false)
-  compensationDate  DateTime?
-  notes             String?
-  createdAt         DateTime  @default(now())
-  
-  @@index([employeeId])
-  @@index([startDate, endDate])
-  @@index([interruptionType])
-  @@index([isCompensated])
-}
-
-// ==================== 📄 سجلات البيانات والمستندات (Data & Documents) ====================
-
-// 1️⃣6️⃣ سجل تغيير بيانات الاتصال
-model EmployeeContactHistory {
-  id                 Int       @id @default(autoincrement())
-  employeeId         Int
-  employee           Employee  @relation("EmployeeContactHistory", fields: [employeeId], references: [id], onDelete: Cascade)
-  fieldName          String
-  oldValue           String?
-  newValue           String
-  changeDate         DateTime
-  reason             String?
-  verificationStatus String?
-  verifiedBy         Int?
-  verificationDate   DateTime?
-  notes              String?
-  changedBy          BigInt?
-  createdAt          DateTime  @default(now())
-  
-  @@index([employeeId])
-  @@index([changeDate])
-  @@index([fieldName])
-  @@index([verificationStatus])
-}
-
-// 1️⃣7️⃣ سجل المستندات
-model EmployeeDocumentHistory {
-  id           Int      @id @default(autoincrement())
-  employeeId   Int
-  employee     Employee @relation("EmployeeDocumentHistory", fields: [employeeId], references: [id], onDelete: Cascade)
-  documentType String
-  documentName String
-  documentUrl  String?
-  uploadDate   DateTime
-  expiryDate   DateTime?
-  status       String   @default("active")
-  replacedBy   Int?
-  notes        String?
-  uploadedBy   BigInt?
-  createdAt    DateTime @default(now())
-  
-  @@index([employeeId])
-  @@index([documentType])
-  @@index([uploadDate])
-  @@index([status])
-  @@index([expiryDate])
-}
-
-// 1️⃣8️⃣ سجل شامل لكل تغيير في البيانات
-model EmployeeDataChangeLog {
-  id         Int      @id @default(autoincrement())
-  employeeId Int
-  employee   Employee @relation("EmployeeDataChangeLog", fields: [employeeId], references: [id], onDelete: Cascade)
-  tableName  String
-  recordId   Int?
-  fieldName  String
-  oldValue   String?
-  newValue   String?
-  changeType String
-  changeDate DateTime
-  reason     String?
-  changedBy  BigInt?
-  ipAddress  String?
-  userAgent  String?
-  notes      String?
-  createdAt  DateTime @default(now())
-  
-  @@index([employeeId])
-  @@index([changeDate])
-  @@index([tableName])
-  @@index([fieldName])
-  @@index([changeType])
-  @@index([changedBy])
-}
-
-// ==================== 📈 سجلات الأداء والتدريب (Performance & Training) ====================
-
-// 1️⃣9️⃣ سجل تقييمات الأداء
-model EmployeePerformanceHistory {
-  id                Int       @id @default(autoincrement())
-  employeeId        Int
-  employee          Employee  @relation("EmployeePerformanceHistory", fields: [employeeId], references: [id], onDelete: Cascade)
-  evaluationDate    DateTime
-  evaluationType    String
-  overallRating     Float
-  maxRating         Float     @default(5)
-  qualityScore      Float?
-  productivityScore Float?
-  attendanceScore   Float?
-  teamworkScore     Float?
-  leadershipScore   Float?
-  evaluatorId       Int?
-  evaluatorName     String?
-  strengths         String?
-  weaknesses        String?
-  recommendations   String?
-  status            String    @default("completed")
-  approvedBy        Int?
-  approvalDate      DateTime?
-  notes             String?
-  createdAt         DateTime  @default(now())
-  
-  @@index([employeeId])
-  @@index([evaluationDate])
-  @@index([evaluationType])
-  @@index([status])
-}
-
-// 2️⃣0️⃣ سجل الدورات التدريبية
-model EmployeeTrainingHistory {
-  id             Int      @id @default(autoincrement())
-  employeeId     Int
-  employee       Employee @relation("EmployeeTrainingHistory", fields: [employeeId], references: [id], onDelete: Cascade)
-  trainingTitle  String
-  trainingType   String
-  provider       String?
-  startDate      DateTime
-  endDate        DateTime
-  duration       Int?
-  location       String?
-  cost           Float?   @default(0)
-  currency       String?  @default("EGP")
-  status         String   @default("completed")
-  certificateUrl String?
-  grade          String?
-  skillsGained   String?
-  notes          String?
-  createdAt      DateTime @default(now())
-  
-  @@index([employeeId])
-  @@index([startDate])
-  @@index([trainingType])
-  @@index([status])
-}
-
-// ==================== 🚨 سجلات الإجراءات التأديبية (Disciplinary Records) ====================
-
-// 2️⃣1️⃣ سجل الإنذارات والعقوبات
-model EmployeeDisciplinaryHistory {
-  id             Int       @id @default(autoincrement())
-  employeeId     Int
-  employee       Employee  @relation("EmployeeDisciplinaryHistory", fields: [employeeId], references: [id], onDelete: Cascade)
-  actionType     String
-  severity       String
-  violationType  String
-  incidentDate   DateTime
-  issueDate      DateTime
-  description    String
-  actionTaken    String
-  penaltyAmount  Float?    @default(0)
-  suspensionDays Int?
-  issuedBy       Int?
-  witnessIds     String?
-  appealStatus   String?
-  appealDate     DateTime?
-  appealNotes    String?
-  isActive       Boolean   @default(true)
-  expiryDate     DateTime?
-  documentUrl    String?
-  notes          String?
-  createdAt      DateTime  @default(now())
-  
-  @@index([employeeId])
-  @@index([incidentDate])
-  @@index([actionType])
-  @@index([severity])
-  @@index([violationType])
-  @@index([isActive])
-}
-
-// ==================== 📊 سجل شامل موحد (Comprehensive Audit Log) ====================
-
-// 2️⃣2️⃣ سجل شامل لكل الأحداث
-model EmployeeAuditLog {
-  id             Int      @id @default(autoincrement())
-  employeeId     Int
-  employee       Employee @relation("EmployeeAuditLog", fields: [employeeId], references: [id], onDelete: Cascade)
-  eventType      String
-  eventCategory  String
-  description    String
-  oldData        String?
-  newData        String?
-  severity       String   @default("info")
-  eventDate      DateTime
-  performedBy    BigInt?
-  affectedTables String?
-  referenceId    Int?
-  referenceType  String?
-  ipAddress      String?
-  userAgent      String?
-  notes          String?
-  createdAt      DateTime @default(now())
-  
-  @@index([employeeId])
-  @@index([eventDate])
-  @@index([eventType])
-  @@index([eventCategory])
-  @@index([severity])
-  @@index([performedBy])
 }

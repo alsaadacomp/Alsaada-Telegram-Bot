@@ -382,14 +382,17 @@ export class SettingsManager extends EventEmitter {
 
       // Save history
       if (this.options.enableHistory) {
-        await Database.prisma.settingHistory.create({
+        await Database.prisma.auditLog.create({
           data: {
-            settingId: setting.id,
-            settingKey: key,
+            model: 'Setting',
+            recordId: setting.id.toString(),
+            action: 'UPDATE',
+            category: definition.category.toUpperCase(),
+            fieldName: key,
             oldValue: this.serializeValue(oldValue, definition.type),
             newValue: serializedValue,
-            changedBy: updatedBy,
-            reason,
+            changedByUserId: updatedBy,
+            description: reason,
           },
         })
       }
@@ -555,9 +558,12 @@ export class SettingsManager extends EventEmitter {
         return []
       }
 
-      const history = await Database.prisma.settingHistory.findMany({
-        where: { settingKey: key },
-        orderBy: { createdAt: 'desc' },
+      const history = await Database.prisma.auditLog.findMany({
+        where: {
+          model: 'Setting',
+          fieldName: key,
+        },
+        orderBy: { timestamp: 'desc' },
         take: limit,
       })
 
@@ -565,9 +571,9 @@ export class SettingsManager extends EventEmitter {
         id: h.id,
         oldValue: h.oldValue ? this.deserializeValue(h.oldValue, definition.type) : null,
         newValue: this.deserializeValue(h.newValue, definition.type),
-        changedBy: h.changedBy ?? undefined,
-        reason: h.reason ?? undefined,
-        createdAt: h.createdAt,
+        changedBy: h.changedByUserId ?? undefined,
+        reason: h.description ?? undefined,
+        createdAt: h.timestamp,
       }))
     }
     catch (error) {

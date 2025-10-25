@@ -906,7 +906,6 @@ addEmployeeHandler.callbackQuery('confirm:save:employee', async (ctx) => {
         governorateId: data.governorateId,
         profilePhoto: null, // سيتم إضافته لاحقاً
         cv: null, // سيتم إضافته لاحقاً
-        documents: null, // سيتم إضافته لاحقاً
         nationalIdCardUrl: idCardFrontPath || idCardBackPath || null, // رابط بطاقة الرقم القومي
         isActive: true,
         annualLeaveBalance: 21,

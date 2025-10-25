@@ -120,18 +120,6 @@ export interface SettingChangeEvent {
   timestamp: Date
 }
 
-/**
- * Setting history entry
- */
-export interface SettingHistoryEntry {
-  id: number
-  settingKey: string
-  oldValue: unknown
-  newValue: unknown
-  changedBy?: number
-  changedAt: Date
-  reason?: string
-}
 
 /**
  * Settings group for UI organization

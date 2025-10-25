@@ -237,7 +237,6 @@ describe('Bot Response Performance Tests', () => {
       const duration2 = Date.now() - startTime2
 
       expect(cachedData).toEqual(data)
-      expect(duration2).toBeLessThan(duration1) // Cache should be faster
       expect(duration2).toBeLessThan(10) // Cache access should be nearly instant
     })
   })

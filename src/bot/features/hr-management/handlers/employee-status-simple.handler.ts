@@ -1,6 +1,7 @@
 import type { Context } from '../../../context.js'
 import { Composer, InlineKeyboard } from 'grammy'
 import { Database } from '../../../../modules/database/index.js'
+import { EmploymentStatus } from '../../../../../generated/prisma/index.js'
 import { createSimpleDatePicker, parseDateFromCallback } from '../../../../modules/ui/calendar.js'
 
 export const employeeStatusSimpleHandler = new Composer<Context>()
@@ -33,7 +34,7 @@ employeeStatusSimpleHandler.callbackQuery(/^hr:employee:status:simple:(\d+)$/, a
 
     // تحديد نوع العامل
     const isCurrentEmployee = employee.isActive && 
-                             employee.employmentStatus === 'ACTIVE' && 
+                             employee.employmentStatus === EmploymentStatus.ACTIVE && 
                              !employee.resignationDate && 
                              !employee.terminationDate
 
@@ -94,7 +95,7 @@ employeeStatusSimpleHandler.callbackQuery(/^hr:employee:status:change:(\d+):(.+)
 
     // تحديد الحالة الحالية
     const currentStatus = employee.isActive && 
-                        employee.employmentStatus === 'ACTIVE' && 
+                        employee.employmentStatus === EmploymentStatus.ACTIVE && 
                         !employee.resignationDate && 
                         !employee.terminationDate ? 'CURRENT' : 'FORMER'
 
@@ -108,7 +109,7 @@ employeeStatusSimpleHandler.callbackQuery(/^hr:employee:status:change:(\d+):(.+)
       case 'WORKING':
         updateData = {
           isActive: true,
-          employmentStatus: 'ACTIVE',
+          employmentStatus: EmploymentStatus.ACTIVE,
           resignationDate: null,
           terminationDate: null
         }
@@ -118,7 +119,7 @@ employeeStatusSimpleHandler.callbackQuery(/^hr:employee:status:change:(\d+):(.+)
       case 'ON_LEAVE':
         updateData = {
           isActive: true,
-          employmentStatus: 'ON_LEAVE'
+          employmentStatus: EmploymentStatus.ON_LEAVE
         }
         statusLabel = 'في إجازة'
         break
@@ -126,7 +127,7 @@ employeeStatusSimpleHandler.callbackQuery(/^hr:employee:status:change:(\d+):(.+)
       case 'ON_MISSION':
         updateData = {
           isActive: true,
-          employmentStatus: 'ON_MISSION'
+          employmentStatus: EmploymentStatus.ON_MISSION
         }
         statusLabel = 'في مأمورية'
         break
@@ -150,7 +151,7 @@ employeeStatusSimpleHandler.callbackQuery(/^hr:employee:status:change:(\d+):(.+)
       case 'REACTIVATE':
         updateData = {
           isActive: true,
-          employmentStatus: 'ACTIVE',
+          employmentStatus: EmploymentStatus.ACTIVE,
           resignationDate: null,
           terminationDate: null
         }
@@ -159,14 +160,14 @@ employeeStatusSimpleHandler.callbackQuery(/^hr:employee:status:change:(\d+):(.+)
         
       case 'SETTLED':
         updateData = {
-          employmentStatus: 'SETTLED'
+          employmentStatus: EmploymentStatus.SETTLED
         }
         statusLabel = 'تم تصفية الحساب'
         break
         
       case 'SUSPENDED':
         updateData = {
-          employmentStatus: 'SUSPENDED'
+          employmentStatus: EmploymentStatus.SUSPENDED
         }
         statusLabel = 'حساب معلق'
         break
@@ -179,14 +180,20 @@ employeeStatusSimpleHandler.callbackQuery(/^hr:employee:status:change:(\d+):(.+)
     })
 
     // حفظ في السجل
-    await prisma.employeeStatusHistory.create({
+    await prisma.auditLog.create({
       data: {
-        employeeId,
-        oldStatus: currentStatus,
-        newStatus: statusLabel,
-        statusDate: new Date(),
-        reason: `تغيير الحالة إلى: ${statusLabel}`,
-        changedBy: ctx.from?.id ? BigInt(ctx.from.id) : null
+        model: 'Employee',
+        recordId: employeeId.toString(),
+        action: 'UPDATE',
+        category: 'HR',
+        fieldName: 'employmentStatus',
+        oldValue: currentStatus,
+        newValue: statusLabel,
+        changedByUserId: ctx.from?.id,
+        description: `تغيير الحالة إلى: ${statusLabel}`,
+        metadata: {
+          statusDate: new Date()
+        }
       }
     })
 
@@ -212,18 +219,18 @@ employeeStatusSimpleHandler.callbackQuery(/^hr:employee:status:former:(\d+):(.+)
   await ctx.answerCallbackQuery()
   
   const employeeId = parseInt(ctx.match[1])
-  const terminationType = ctx.match[2]
+  const terminationType = ctx.match[2] as EmploymentStatus
   
-  const statusLabels: { [key: string]: string } = {
-    'RESIGNED': 'استقال',
-    'TERMINATED': 'فصل',
-    'RETIRED': 'تقاعد'
+  const statusLabels: { [key in EmploymentStatus]?: string } = {
+    [EmploymentStatus.RESIGNED]: 'استقال',
+    [EmploymentStatus.TERMINATED]: 'فصل',
+    [EmploymentStatus.RETIRED]: 'تقاعد'
   }
   
-  const dateFields: { [key: string]: string } = {
-    'RESIGNED': 'resignationDate',
-    'TERMINATED': 'terminationDate',
-    'RETIRED': 'terminationDate' // استخدام terminationDate للتقاعد أيضاً
+  const dateFields: { [key in EmploymentStatus]?: string } = {
+    [EmploymentStatus.RESIGNED]: 'resignationDate',
+    [EmploymentStatus.TERMINATED]: 'terminationDate',
+    [EmploymentStatus.RETIRED]: 'terminationDate' // استخدام terminationDate للتقاعد أيضاً
   }
 
   // حفظ نوع الإنهاء في الجلسة
@@ -313,14 +320,20 @@ employeeStatusSimpleHandler.callbackQuery(/^hr:employee:status:simple:date:(\d+)
     })
 
     // حفظ في السجل
-    await prisma.employeeStatusHistory.create({
+    await prisma.auditLog.create({
       data: {
-        employeeId,
-        oldStatus: 'CURRENT',
-        newStatus: newStatus,
-        statusDate: selectedDate,
-        reason: `إنهاء العمل: ${newStatus}`,
-        changedBy: ctx.from?.id ? BigInt(ctx.from.id) : null
+        model: 'Employee',
+        recordId: employeeId.toString(),
+        action: 'UPDATE',
+        category: 'HR',
+        fieldName: 'employmentStatus',
+        oldValue: 'CURRENT',
+        newValue: newStatus,
+        changedByUserId: ctx.from?.id,
+        description: `إنهاء العمل: ${newStatus}`,
+        metadata: {
+          statusDate: selectedDate
+        }
       }
     })
 
@@ -421,14 +434,20 @@ employeeStatusSimpleHandler.on('message:text', async (ctx) => {
     })
 
     // حفظ في السجل
-    await prisma.employeeStatusHistory.create({
+    await prisma.auditLog.create({
       data: {
-        employeeId,
-        oldStatus: 'CURRENT',
-        newStatus: newStatus,
-        statusDate: parsedDate,
-        reason: `إنهاء العمل: ${newStatus}`,
-        changedBy: ctx.from?.id ? BigInt(ctx.from.id) : null
+        model: 'Employee',
+        recordId: employeeId.toString(),
+        action: 'UPDATE',
+        category: 'HR',
+        fieldName: 'employmentStatus',
+        oldValue: 'CURRENT',
+        newValue: newStatus,
+        changedByUserId: ctx.from?.id,
+        description: `إنهاء العمل: ${newStatus}`,
+        metadata: {
+          statusDate: parsedDate
+        }
       }
     })
 
